@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Tabs - ECharts Dashboard</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            background: #1a1a1a;
+            color: white;
+        }
+        .test-section { 
+            margin: 20px 0; 
+            padding: 20px; 
+            border: 1px solid #333;
+            border-radius: 8px;
+            background: #2a2a2a;
+        }
+        .test-button {
+            padding: 10px 15px;
+            margin: 5px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #333;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .warning { color: #ffc107; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test Tabs - ECharts Dashboard</h1>
+    
+    <div class="test-section">
+        <h2>📊 Kiểm tra Dashboard</h2>
+        <button class="test-button" onclick="openDashboard()">Mở Dashboard</button>
+        <button class="test-button" onclick="testAllTabs()">Test Tất Cả Tabs</button>
+        <button class="test-button" onclick="checkChartStatus()">Kiểm tra Charts</button>
+        <button class="test-button" onclick="testTabSwitching()">Test Chuyển Tab</button>
+        <div id="dashboard-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>🔧 Debug Tools</h2>
+        <button class="test-button" onclick="runDebugCommand()">Chạy Debug Command</button>
+        <button class="test-button" onclick="clearResults()">Xóa Kết Quả</button>
+        <div id="debug-result" class="result"></div>
+    </div>
+
+    <script>
+        let dashboardWindow = null;
+        
+        function openDashboard() {
+            const result = document.getElementById('dashboard-result');
+            result.innerHTML = '<div class="warning">⏳ Đang mở dashboard...</div>';
+            
+            dashboardWindow = window.open('index.html', 'dashboard', 'width=1400,height=900');
+            
+            if (dashboardWindow) {
+                result.innerHTML = '<div class="success">✅ Dashboard đã được mở thành công!</div>';
+                
+                // Wait for dashboard to load and run tests
+                setTimeout(() => {
+                    if (dashboardWindow && !dashboardWindow.closed) {
+                        result.innerHTML += '<div class="success">✅ Dashboard đang chạy</div>';
+                    } else {
+                        result.innerHTML += '<div class="error">❌ Dashboard bị đóng hoặc không mở được</div>';
+                    }
+                }, 2000);
+            } else {
+                result.innerHTML = '<div class="error">❌ Không thể mở dashboard. Kiểm tra popup blocker.</div>';
+            }
+        }
+        
+        function testAllTabs() {
+            const result = document.getElementById('dashboard-result');
+            
+            if (!dashboardWindow || dashboardWindow.closed) {
+                result.innerHTML += '<div class="error">❌ Vui lòng mở dashboard trước</div>';
+                return;
+            }
+            
+            try {
+                const tabs = ['overview', 'detailed', 'analytics', 'exports'];
+                let testResults = '<div class="warning">🧪 Đang test tất cả tabs...</div>';
+                result.innerHTML += testResults;
+                
+                tabs.forEach((tab, index) => {
+                    setTimeout(() => {
+                        try {
+                            const tabButton = dashboardWindow.document.querySelector(`[data-tab="${tab}"]`);
+                            if (tabButton) {
+                                tabButton.click();
+                                result.innerHTML += `<div class="success">✅ Tab ${tab} - OK</div>`;
+                            } else {
+                                result.innerHTML += `<div class="error">❌ Tab ${tab} - Không tìm thấy button</div>`;
+                            }
+                        } catch (error) {
+                            result.innerHTML += `<div class="error">❌ Tab ${tab} - Lỗi: ${error.message}</div>`;
+                        }
+                    }, index * 1000);
+                });
+                
+            } catch (error) {
+                result.innerHTML += `<div class="error">❌ Lỗi khi test tabs: ${error.message}</div>`;
+            }
+        }
+        
+        function checkChartStatus() {
+            const result = document.getElementById('dashboard-result');
+            
+            if (!dashboardWindow || dashboardWindow.closed) {
+                result.innerHTML += '<div class="error">❌ Vui lòng mở dashboard trước</div>';
+                return;
+            }
+            
+            try {
+                // Call debug function in dashboard
+                if (dashboardWindow.debugAppStatus) {
+                    dashboardWindow.debugAppStatus();
+                    result.innerHTML += '<div class="success">✅ Debug info đã được in ra console của dashboard</div>';
+                } else {
+                    result.innerHTML += '<div class="warning">⚠️ Debug function không tồn tại</div>';
+                }
+                
+                // Check charts object
+                if (dashboardWindow.charts) {
+                    const chartCount = Object.keys(dashboardWindow.charts).length;
+                    result.innerHTML += `<div class="success">✅ Có ${chartCount} charts được khởi tạo</div>`;
+                } else {
+                    result.innerHTML += '<div class="error">❌ Charts object không tồn tại</div>';
+                }
+                
+            } catch (error) {
+                result.innerHTML += `<div class="error">❌ Lỗi khi kiểm tra charts: ${error.message}</div>`;
+            }
+        }
+        
+        function testTabSwitching() {
+            const result = document.getElementById('dashboard-result');
+            
+            if (!dashboardWindow || dashboardWindow.closed) {
+                result.innerHTML += '<div class="error">❌ Vui lòng mở dashboard trước</div>';
+                return;
+            }
+            
+            result.innerHTML += '<div class="warning">🔄 Đang test chuyển đổi tabs...</div>';
+            
+            const tabs = ['overview', 'detailed', 'analytics', 'exports'];
+            let currentIndex = 0;
+            
+            const switchTab = () => {
+                if (currentIndex >= tabs.length) {
+                    result.innerHTML += '<div class="success">✅ Hoàn thành test chuyển đổi tabs</div>';
+                    return;
+                }
+                
+                const tab = tabs[currentIndex];
+                try {
+                    const tabButton = dashboardWindow.document.querySelector(`[data-tab="${tab}"]`);
+                    if (tabButton) {
+                        tabButton.click();
+                        result.innerHTML += `<div class="success">✅ Chuyển sang tab ${tab}</div>`;
+                        
+                        // Check if tab content is visible
+                        setTimeout(() => {
+                            const tabContent = dashboardWindow.document.getElementById(`${tab}-tab`);
+                            if (tabContent && tabContent.classList.contains('active')) {
+                                result.innerHTML += `<div class="success">✅ Tab ${tab} hiển thị đúng</div>`;
+                            } else {
+                                result.innerHTML += `<div class="error">❌ Tab ${tab} không hiển thị đúng</div>`;
+                            }
+                        }, 500);
+                        
+                    } else {
+                        result.innerHTML += `<div class="error">❌ Không tìm thấy button cho tab ${tab}</div>`;
+                    }
+                } catch (error) {
+                    result.innerHTML += `<div class="error">❌ Lỗi khi chuyển tab ${tab}: ${error.message}</div>`;
+                }
+                
+                currentIndex++;
+                setTimeout(switchTab, 1500);
+            };
+            
+            switchTab();
+        }
+        
+        function runDebugCommand() {
+            const result = document.getElementById('debug-result');
+            
+            if (!dashboardWindow || dashboardWindow.closed) {
+                result.innerHTML = '<div class="error">❌ Vui lòng mở dashboard trước</div>';
+                return;
+            }
+            
+            try {
+                if (dashboardWindow.debugAppStatus) {
+                    dashboardWindow.debugAppStatus();
+                    
+                    // Get some basic info
+                    const chartCount = dashboardWindow.charts ? Object.keys(dashboardWindow.charts).length : 0;
+                    const activeTab = dashboardWindow.document.querySelector('.tab-content.active');
+                    const activeTabId = activeTab ? activeTab.id : 'none';
+                    
+                    result.innerHTML = `
+                        <div class="success">✅ Debug command executed</div>
+                        <div>📊 Charts initialized: ${chartCount}</div>
+                        <div>🎯 Active tab: ${activeTabId}</div>
+                        <div>💾 Data available: ${!!dashboardWindow.lastFetchedData}</div>
+                        <div class="warning">ℹ️ Chi tiết xem trong console của dashboard</div>
+                    `;
+                } else {
+                    result.innerHTML = '<div class="error">❌ Debug function không tồn tại</div>';
+                }
+            } catch (error) {
+                result.innerHTML = `<div class="error">❌ Lỗi: ${error.message}</div>`;
+            }
+        }
+        
+        function clearResults() {
+            document.getElementById('dashboard-result').innerHTML = '';
+            document.getElementById('debug-result').innerHTML = '';
+        }
+        
+        // Auto-check if dashboard is already open
+        window.addEventListener('load', () => {
+            console.log('Test page loaded');
+        });
+    </script>
+</body>
+</html> 
