@@ -3,37 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ECharts Dashboard - Optimized Performance</title>
-    
-    <!-- Preconnect to external domains for faster loading -->
+    <title>ECharts Dashboard - Elasticsearch Data Visualization</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
-    
-    <!-- DNS prefetch for better performance -->
-    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
-    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
-    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
-    
-    <!-- Optimized font loading -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- Critical CSS inline for faster initial render -->
-    <style>
-        body { margin: 0; background: #0a0a0f; color: #e4e4e7; font-family: 'Inter', sans-serif; }
-        .modern-dashboard { display: flex; min-height: 100vh; }
-        .loading-initial { display: flex; align-items: center; justify-content: center; height: 100vh; }
-        .loading-initial span { font-size: 1.5rem; color: #64c8ff; }
-    </style>
-    
-    <!-- Defer non-critical scripts -->
-    <script defer src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
-    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- Motion.js removed for better performance -->
-    
-    <!-- Main stylesheet -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/framer-motion@11.0.8/dist/motion.js"></script>
     <link rel="stylesheet" href="styles.css">
     <style>
         /* Additional enhancements for tooltip styling */
@@ -101,106 +78,61 @@
         <!-- Mobile Sidebar Overlay -->
         <div class="sidebar-overlay" id="sidebarOverlay"></div>
         
-        <!-- Standard Sidebar Navigation -->
+        <!-- Sidebar Navigation -->
         <aside class="sidebar">
-            <!-- Sidebar Header -->
             <div class="sidebar-header">
-                <div class="sidebar-brand">
-                    <div class="brand-icon">
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                            <circle cx="9" cy="7" r="4"></circle>
-                            <path d="m22 21-3-3m0 0a5.5 5.5 0 1 0-7.78-7.78 5.5 5.5 0 0 0 7.78 7.78Z"></path>
-                        </svg>
-                    </div>
-                    <div class="brand-text">
-                        <h1 class="brand-title">Analytics</h1>
-                        <p class="brand-subtitle">Dashboard</p>
-                    </div>
+                <div class="logo">
+                    <div class="logo-icon">🚌</div>
+                    <h2>Transit Analytics</h2>
                 </div>
-                <button class="sidebar-toggle-btn" id="sidebarToggleBtn">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M3 6h18M3 12h18M3 18h18"></path>
-                    </svg>
-                </button>
             </div>
             
-            <!-- Sidebar Navigation Menu -->
-            <nav class="sidebar-menu">
-                <div class="menu-section">
-                    <h3 class="menu-title">Báo cáo</h3>
-                    <ul class="menu-list">
-                        <li class="menu-item">
-                            <a href="#overview" class="menu-link active" data-tab="overview" data-tooltip="Tổng quan">
-                                <div class="menu-icon">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <rect x="3" y="3" width="7" height="7"></rect>
-                                        <rect x="14" y="3" width="7" height="7"></rect>
-                                        <rect x="14" y="14" width="7" height="7"></rect>
-                                        <rect x="3" y="14" width="7" height="7"></rect>
-                                    </svg>
-                                </div>
-                                <span class="menu-text">Tổng quan</span>
-                            </a>
-                        </li>
-                        <li class="menu-item">
-                            <a href="#detailed" class="menu-link" data-tab="detailed" data-tooltip="Báo cáo chi tiết">
-                                <div class="menu-icon">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                        <polyline points="14 2 14 8 20 8"></polyline>
-                                        <line x1="16" y1="13" x2="8" y2="13"></line>
-                                        <line x1="16" y1="17" x2="8" y2="17"></line>
-                                    </svg>
-                                </div>
-                                <span class="menu-text">Báo cáo chi tiết</span>
-                            </a>
-                        </li>
-                        <li class="menu-item">
-                            <a href="#analytics" class="menu-link" data-tab="analytics" data-tooltip="Phân tích chuyên sâu">
-                                <div class="menu-icon">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <line x1="12" y1="20" x2="12" y2="10"></line>
-                                        <line x1="18" y1="20" x2="18" y2="4"></line>
-                                        <line x1="6" y1="20" x2="6" y2="16"></line>
-                                    </svg>
-                                </div>
-                                <span class="menu-text">Phân tích chuyên sâu</span>
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-                
-                <div class="menu-section">
-                    <h3 class="menu-title">Công cụ</h3>
-                    <ul class="menu-list">
-                        <li class="menu-item">
-                            <a href="#exports" class="menu-link" data-tab="exports" data-tooltip="Xuất báo cáo">
-                                <div class="menu-icon">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                        <polyline points="7 10 12 15 17 10"></polyline>
-                                        <line x1="12" y1="15" x2="12" y2="3"></line>
-                                    </svg>
-                                </div>
-                                <span class="menu-text">Xuất báo cáo</span>
-                            </a>
-                        </li>
-                    </ul>
-                </div>
+            <nav class="sidebar-nav">
+                <a href="#overview" class="nav-item active" data-tab="overview" data-tooltip="Tổng quan">
+                    <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>
+                    <span>Tổng quan</span>
+                </a>
+                <a href="#detailed" class="nav-item" data-tab="detailed" data-tooltip="Báo cáo chi tiết">
+                    <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    <span>Báo cáo chi tiết</span>
+                </a>
+                <a href="#analytics" class="nav-item" data-tab="analytics" data-tooltip="Phân tích chuyên sâu">
+                    <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="20" x2="12" y2="10"></line>
+                        <line x1="18" y1="20" x2="18" y2="4"></line>
+                        <line x1="6" y1="20" x2="6" y2="16"></line>
+                    </svg>
+                    <span>Phân tích chuyên sâu</span>
+                </a>
+                <a href="#exports" class="nav-item" data-tab="exports" data-tooltip="Xuất báo cáo">
+                    <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    <span>Xuất báo cáo</span>
+                </a>
             </nav>
             
-            <!-- Sidebar Footer -->
             <div class="sidebar-footer">
-                <button id="refreshData" class="refresh-btn">
-                    <div class="refresh-icon">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="23 4 23 10 17 10"></polyline>
-                            <polyline points="1 20 1 14 7 14"></polyline>
-                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-                        </svg>
-                    </div>
-                    <span class="refresh-text">Làm mới dữ liệu</span>
+                <button id="refreshData" class="btn-sidebar">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <polyline points="1 20 1 14 7 14"></polyline>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                    Làm mới dữ liệu
                 </button>
             </div>
         </aside>
@@ -210,6 +142,13 @@
             <!-- Top Bar -->
             <div class="topbar">
                 <div class="topbar-left">
+                    <button class="sidebar-toggle" id="sidebarToggle">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <line x1="3" y1="12" x2="21" y2="12"></line>
+                            <line x1="3" y1="18" x2="21" y2="18"></line>
+                        </svg>
+                    </button>
                     <div class="page-header">
                         <h1 class="page-title">Dashboard Phân Tích Giao Thông</h1>
                         <p class="page-subtitle">Hệ thống giám sát và phân tích dữ liệu thời gian thực</p>
@@ -383,30 +322,12 @@
                     </div>
                 </div>
             </div>
-
-            <div class="report-section">
-                <h2>📊 VII. Biểu đồ khai thác dữ liệu chuyên sâu</h2>
-                <div class="chart-grid analytics">
-                    <div class="chart-container full-width">
-                        <h3>🕸️ Mạng lưới phân tích đa chiều</h3>
-                        <div id="networkAnalysisChart" class="chart chart-large"></div>
-                    </div>
-                    <div class="chart-container">
-                        <h3>🔥 Heat Map - Điểm nóng báo cáo</h3>
-                        <div id="heatmapChart" class="chart"></div>
-                    </div>
-                    <div class="chart-container">
-                        <h3>📊 Phân tích tương quan</h3>
-                        <div id="correlationChart" class="chart"></div>
-                    </div>
-                </div>
-            </div>
         </div>
 
         <!-- Export Reports Tab -->
         <div id="exports-tab" class="tab-content">
             <div class="report-section">
-                <h2>📈 VIII. Báo cáo khai thác thông tin</h2>
+                <h2>📈 VII. Báo cáo khai thác thông tin</h2>
                 <div class="export-grid">
                     <div class="export-card">
                         <h3>📊 Phân tích 3 nguồn</h3>
@@ -441,23 +362,27 @@
                 </div>
             </div>
 
+            <div class="report-section">
+                <h2>📊 Biểu đồ khai thác dữ liệu chuyên sâu</h2>
+                <div class="chart-grid analytics">
+                    <div class="chart-container full-width">
+                        <h3>🕸️ Mạng lưới phân tích đa chiều</h3>
+                        <div id="networkAnalysisChart" class="chart chart-large"></div>
+                    </div>
+                    <div class="chart-container">
+                        <h3>🔥 Heat Map - Điểm nóng báo cáo</h3>
+                        <div id="heatmapChart" class="chart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <h3>📊 Phân tích tương quan</h3>
+                        <div id="correlationChart" class="chart"></div>
+                    </div>
+                </div>
+            </div>
             </div> <!-- Close tab-container -->
         </main> <!-- Close main-content -->
     </div> <!-- Close modern-dashboard -->
 
-    <!-- Main app script -->
-    <script defer src="app.js"></script>
-    
-    <!-- Performance monitoring script -->
-    <script>
-        window.addEventListener('load', function() {
-            // Performance monitoring
-            if (window.performance && window.performance.timing) {
-                const timing = window.performance.timing;
-                const loadTime = timing.loadEventEnd - timing.navigationStart;
-                console.log('Page load time:', loadTime, 'ms');
-            }
-        });
-    </script>
+    <script src="app.js"></script>
 </body>
 </html> 

@@ -1,21 +1,6 @@
 // Elasticsearch configuration
 const ELASTICSEARCH_URL = 'http://124.158.5.222:9400/report_test/_search/';
 
-// Performance optimization configuration
-const PERFORMANCE_CONFIG = {
-    ENABLE_ANIMATIONS: false, // Disable animations for better performance
-    DEBOUNCE_DELAY: 150, // Faster response time
-    MAX_CONCURRENT_CHARTS: 3, // Reduce concurrent charts for better performance
-    CACHE_TTL: 300000, // 5 minute cache TTL for better performance
-    LAZY_LOAD_ENABLED: true, // Enable lazy loading
-    CHART_RENDER_DELAY: 25, // Faster rendering
-    BATCH_SIZE: 2, // Smaller batch size for smoother rendering
-    USE_CANVAS_RENDERER: true, // Force canvas renderer for better performance
-    ENABLE_PROGRESSIVE_RENDERING: true, // Enable progressive rendering
-    PRIORITIZE_VISIBLE_CHARTS: true, // Only render visible charts first
-    DEFER_HIDDEN_CHARTS: true // Defer hidden chart rendering
-};
-
 // Global variables
 let charts = {};
 let lastFetchedData = null;
@@ -24,11 +9,6 @@ let chartObserver = null;
 let isDataFetching = false;
 let resizeTimeout = null;
 let lazyLoadObserver = null;
-let initializedTabs = new Set(); // Track initialized tabs
-let pageVisible = true; // Track page visibility
-let chartRenderQueue = []; // Queue for chart rendering
-let isProcessingQueue = false;
-let autoRefreshInterval = null;
 
 // Global text style configuration for consistent text rendering
 const GLOBAL_TEXT_STYLE = {
@@ -40,24 +20,14 @@ const GLOBAL_TEXT_STYLE = {
 
 // Animation configurations for motion.js
 const ANIMATION_CONFIG = {
-    duration: PERFORMANCE_CONFIG.ENABLE_ANIMATIONS ? 0.8 : 0,
+    duration: 0.8,
     ease: [0.4, 0, 0.2, 1],
-    stagger: PERFORMANCE_CONFIG.ENABLE_ANIMATIONS ? 0.1 : 0,
-    chartsStagger: PERFORMANCE_CONFIG.ENABLE_ANIMATIONS ? 0.15 : 0
+    stagger: 0.1,
+    chartsStagger: 0.15
 };
 
 // Chart entrance animations with motion.js
 function animateChartEntrance() {
-    // Skip animations if disabled for performance
-    if (!PERFORMANCE_CONFIG.ENABLE_ANIMATIONS) {
-        const chartContainers = document.querySelectorAll('.chart-container');
-        chartContainers.forEach(container => {
-            container.style.opacity = '1';
-            container.style.visibility = 'visible';
-        });
-        return;
-    }
-    
     if (typeof Motion === 'undefined') {
         console.log('Motion.js not loaded, skipping animations');
         return;
@@ -92,7 +62,7 @@ function animateChartEntrance() {
 
 // Chart elements animation with motion.js
 function animateChartElements() {
-    if (!PERFORMANCE_CONFIG.ENABLE_ANIMATIONS || typeof Motion === 'undefined') return;
+    if (typeof Motion === 'undefined') return;
     
     try {
         const charts = document.querySelectorAll('.chart');
@@ -128,8 +98,6 @@ function animateTabSwitch(activeTabId) {
             setTimeout(() => {
                 resizeAndUpdateChartsForTab(activeTabId);
             }, 300); // Reduced from 450ms for snappier response
-        } else {
-            console.warn(`Tab element with id '${activeTabId}' not found`);
         }
     });
 }
@@ -196,45 +164,18 @@ function animateChartContainers(tabSelector) {
     }
 }
 
-// Improved loading state with better performance
+// Simple loading state (removed complex animations that interfere with charts)
 function showAdvancedLoading(chartId) {
     // Use ECharts built-in loading instead
     if (charts[chartId]) {
         charts[chartId].showLoading('default', {
-            text: 'Đang tải dữ liệu...',
+            text: 'Đang tải...',
             color: '#64c8ff',
             textColor: '#ffffff',
-            maskColor: 'rgba(10, 10, 15, 0.8)',
-            zlevel: 0,
-            fontSize: 12,
-            showSpinner: true,
-            spinnerRadius: 12,
-            lineWidth: 2
+            maskColor: 'rgba(0, 0, 0, 0.4)',
+            fontSize: 14
         });
     }
-}
-
-// Show loading for tab with performance optimization
-function showTabLoading(tabName) {
-    const tabCharts = CHARTS_BY_TAB[tabName] || [];
-    console.log(`Showing loading for ${tabCharts.length} charts in tab: ${tabName}`);
-    
-    // Show loading for each chart in batch
-    tabCharts.forEach((chartId, index) => {
-        setTimeout(() => {
-            showAdvancedLoading(chartId);
-        }, index * 10); // Very fast stagger for loading indicators
-    });
-}
-
-// Hide loading for tab
-function hideTabLoading(tabName) {
-    const tabCharts = CHARTS_BY_TAB[tabName] || [];
-    tabCharts.forEach(chartId => {
-        if (charts[chartId]) {
-            charts[chartId].hideLoading();
-        }
-    });
 }
 
 // Chart update animation with motion.js
@@ -279,26 +220,31 @@ function createFloatingParticles() {
     return;
 }
 
-// Initialize components in proper sequence to prevent race conditions
-async function initializeComponentsSequentially() {
-    console.log('Initializing dashboard components...');
+// Initialize the application
+document.addEventListener('DOMContentLoaded', function() {
+    // Fix grid classes for proper responsive layout
+    fixGridClasses();
     
-    try {
-        // Step 1: Initialize charts first
-        await new Promise(resolve => {
-            initializeCharts();
-            setTimeout(resolve, 100); // Allow charts to initialize
-        });
+    // Initialize in proper sequence to prevent race conditions
+    setTimeout(() => {
+        console.log('Initializing dashboard components...');
         
-        // Step 2: Initialize tabs and UI components
-        await new Promise(resolve => {
-            initializeTabs();
-            initializeExportButtons();
-            setTimeout(resolve, 50); // Allow UI to initialize
-        });
+        // Initialize charts first
+        initializeCharts();
         
-        // Step 3: Initialize animations only if Motion.js is loaded
-        if (typeof Motion !== 'undefined') {
+        // Initialize tabs and UI components
+        initializeTabs();
+        initializeExportButtons();
+        
+        // Fetch and update data last
+        setTimeout(() => {
+            fetchDataAndUpdateCharts();
+        }, 200);
+    }, 100);
+    
+    // Initialize animations only if Motion.js is loaded
+    if (typeof Motion !== 'undefined') {
+        setTimeout(() => {
             try {
                 console.log('Initializing Motion.js animations...');
                 animateChartEntrance();
@@ -306,31 +252,10 @@ async function initializeComponentsSequentially() {
             } catch (error) {
                 console.log('Animation initialization error:', error);
             }
-        } else {
-            console.log('Motion.js not loaded, animations disabled');
-        }
-        
-        // Step 4: Fetch and update data last
-        await new Promise(resolve => {
-            setTimeout(() => {
-                fetchDataAndUpdateCharts();
-                resolve();
-            }, 200);
-        });
-        
-        console.log('Dashboard initialization completed successfully');
-    } catch (error) {
-        console.error('Error during dashboard initialization:', error);
+        }, 1000);
+    } else {
+        console.log('Motion.js not loaded, animations disabled');
     }
-}
-
-// Initialize the application
-document.addEventListener('DOMContentLoaded', function() {
-    // Fix grid classes for proper responsive layout
-    fixGridClasses();
-    
-    // Initialize components in proper sequence to prevent race conditions
-    initializeComponentsSequentially();
     
     // Event listeners with animations and null checks
     const refreshBtn = document.getElementById('refreshData');
@@ -340,7 +265,7 @@ document.addEventListener('DOMContentLoaded', function() {
             e.target.style.transform = 'scale(0.95)';
             setTimeout(() => {
                 e.target.style.transform = 'scale(1)';
-            }, PERFORMANCE_CONFIG.DEBOUNCE_DELAY);
+            }, 150);
             
             // Force refresh all data and charts
             console.log('🔄 Refreshing all data...');
@@ -362,7 +287,7 @@ document.addEventListener('DOMContentLoaded', function() {
             e.target.style.transform = 'scale(0.95)';
             setTimeout(() => {
                 e.target.style.transform = 'scale(1)';
-            }, PERFORMANCE_CONFIG.DEBOUNCE_DELAY);
+            }, 150);
             
             exportAllToExcel();
         });
@@ -370,59 +295,9 @@ document.addEventListener('DOMContentLoaded', function() {
         console.warn('Export button not found');
     }
     
-    // Auto-refresh every 5 minutes (only when page is visible)
-    autoRefreshInterval = setInterval(() => {
-        if (pageVisible && !isDataFetching) {
-            fetchDataAndUpdateCharts();
-        } else {
-            console.log('Skipping auto-refresh: page not visible or fetch in progress');
-        }
-    }, 5 * 60 * 1000);
+    // Auto-refresh every 5 minutes
+    setInterval(fetchDataAndUpdateCharts, 5 * 60 * 1000);
 });
-
-// Cleanup function for memory management
-function cleanupResources() {
-    console.log('Cleaning up resources...');
-    
-    // Clear auto-refresh interval
-    if (autoRefreshInterval) {
-        clearInterval(autoRefreshInterval);
-        autoRefreshInterval = null;
-    }
-    
-    // Clear resize timeout
-    if (resizeTimeout) {
-        clearTimeout(resizeTimeout);
-        resizeTimeout = null;
-    }
-    
-    // Dispose all charts
-    Object.keys(charts).forEach(chartId => {
-        if (charts[chartId] && !charts[chartId].isDisposed()) {
-            charts[chartId].dispose();
-        }
-    });
-    charts = {};
-    
-    // Clear observers
-    if (chartObserver) {
-        chartObserver.disconnect();
-        chartObserver = null;
-    }
-    
-    if (lazyLoadObserver) {
-        lazyLoadObserver.disconnect();
-        lazyLoadObserver = null;
-    }
-    
-    // Clear cache
-    dataCache.clear();
-    
-    console.log('Resources cleaned up successfully');
-}
-
-// Add cleanup on page unload
-window.addEventListener('beforeunload', cleanupResources);
 
 // Fix grid classes for proper responsive layout
 function fixGridClasses() {
@@ -447,17 +322,6 @@ function initializeLazyLoading() {
     initializeCharts();
 }
 
-// Chart configurations by tab with priority
-const CHARTS_BY_TAB = {
-    overview: ['sourceChart', 'enterpriseChart', 'typeChart', 'severityChart', 'targetChart', 'statusChart', 'routeChart', 'contentChart'],
-    detailed: ['enterpriseTypeMatrix', 'timeTrendChart', 'severityTypeChart', 'riskAnalysisChart', 'routeMonthlyChart'],
-    analytics: ['cnlxAnalytics', 'garaAnalytics', 'nvpvAnalytics', 'praiseBySourceChart', 'praiseByEnterpriseChart', 'responseRateChart', 'responseTimeChart', 'networkAnalysisChart', 'heatmapChart', 'correlationChart'],
-    exports: []
-};
-
-// High priority charts (render first)
-const HIGH_PRIORITY_CHARTS = ['sourceChart', 'enterpriseChart', 'typeChart', 'severityChart'];
-
 // Initialize all ECharts instances with performance optimizations
 function initializeCharts() {
     // Check if ECharts library is loaded
@@ -467,122 +331,68 @@ function initializeCharts() {
         return;
     }
 
-    if (PERFORMANCE_CONFIG.LAZY_LOAD_ENABLED) {
-        // Only initialize charts for the active tab
-        const activeTab = getActiveTabName();
-        initializeTabCharts(activeTab);
-    } else {
-        // Initialize all charts (old behavior)
-        const chartIds = [
-            'sourceChart', 'enterpriseChart', 'typeChart', 
-            'severityChart', 'targetChart', 'statusChart',
-            'routeChart', 'contentChart',
-            // New detailed report charts
-            'enterpriseTypeMatrix', 'timeTrendChart', 'severityTypeChart', 'riskAnalysisChart',
-            'routeMonthlyChart', 'cnlxAnalytics', 'garaAnalytics', 'nvpvAnalytics',
-            'praiseBySourceChart', 'praiseByEnterpriseChart', 'responseRateChart', 'responseTimeChart',
-            'networkAnalysisChart', 'heatmapChart', 'correlationChart'
-        ];
-        
-        chartIds.forEach(id => initializeChart(id));
-    }
-}
+    const chartIds = [
+        'sourceChart', 'enterpriseChart', 'typeChart', 
+        'severityChart', 'targetChart', 'statusChart',
+        'routeChart', 'contentChart',
+        // New detailed report charts
+        'enterpriseTypeMatrix', 'timeTrendChart', 'severityTypeChart', 'riskAnalysisChart',
+        'routeMonthlyChart', 'cnlxAnalytics', 'garaAnalytics', 'nvpvAnalytics',
+        'praiseBySourceChart', 'praiseByEnterpriseChart', 'responseRateChart', 'responseTimeChart',
+        'networkAnalysisChart', 'heatmapChart', 'correlationChart'
+    ];
+    
+    let initializedCount = 0;
+    
+    // Initialize all charts
+    chartIds.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+            try {
+                // Check if element has proper dimensions or is in hidden tab
+                let width = element.offsetWidth;
+                let height = element.offsetHeight;
+                
+                if (width === 0 || height === 0) {
+                    console.warn(`Chart element ${id} has no dimensions (possibly in hidden tab). Setting default size.`);
+                    element.style.width = '100%';
+                    element.style.height = '380px';
+                    
+                    // For hidden tabs, use default dimensions
+                    width = width || 600;
+                    height = height || 380;
+                }
 
-// Initialize charts for a specific tab
-function initializeTabCharts(tabName) {
-    if (initializedTabs.has(tabName)) {
-        console.log(`Tab ${tabName} already initialized`);
-        return;
-    }
-    
-    const tabCharts = CHARTS_BY_TAB[tabName] || [];
-    console.log(`Initializing ${tabCharts.length} charts for tab: ${tabName}`);
-    
-    // Separate high priority and regular charts
-    const highPriorityCharts = tabCharts.filter(chartId => HIGH_PRIORITY_CHARTS.includes(chartId));
-    const regularCharts = tabCharts.filter(chartId => !HIGH_PRIORITY_CHARTS.includes(chartId));
-    
-    // Initialize high priority charts first (no delay)
-    highPriorityCharts.forEach(chartId => {
-        initializeChart(chartId);
-    });
-    
-    // Initialize regular charts with progressive delay
-    regularCharts.forEach((chartId, index) => {
-        setTimeout(() => {
-            initializeChart(chartId);
-        }, (index + 1) * PERFORMANCE_CONFIG.CHART_RENDER_DELAY);
-    });
-    
-    initializedTabs.add(tabName);
-}
-
-// Initialize a single chart
-function initializeChart(id) {
-    const element = document.getElementById(id);
-    if (!element) {
-        console.warn(`Chart element not found: ${id}`);
-        return;
-    }
-    
-    if (charts[id]) {
-        console.log(`Chart ${id} already initialized`);
-        return;
-    }
-    
-    try {
-        // Check if element has proper dimensions or is in hidden tab
-        let width = element.offsetWidth;
-        let height = element.offsetHeight;
-        
-        if (width === 0 || height === 0) {
-            console.warn(`Chart element ${id} has no dimensions (possibly in hidden tab). Setting default size.`);
-            element.style.width = '100%';
-            element.style.height = '380px';
-            
-            // For hidden tabs, use default dimensions
-            width = width || 600;
-            height = height || 380;
+                charts[id] = echarts.init(element, null, {
+                    renderer: 'canvas',
+                    useDirtyRect: true,
+                    useCoarsePointer: true,
+                    pointerSize: 2,
+                    ssr: false,
+                    width: width,
+                    height: height
+                });
+                
+                // Configure performance settings
+                charts[id].setOption({
+                    animation: true,
+                    animationDuration: 300,
+                    animationEasing: 'cubicOut',
+                    lazyUpdate: true
+                });
+                
+                showLoadingState(id);
+                initializedCount++;
+                console.log(`Successfully initialized chart: ${id}`);
+            } catch (error) {
+                console.error(`Error initializing chart ${id}:`, error);
+            }
+        } else {
+            console.warn(`Chart element not found: ${id}`);
         }
-
-        charts[id] = echarts.init(element, null, {
-            renderer: 'canvas',
-            useDirtyRect: true,
-            useCoarsePointer: true,
-            pointerSize: 2,
-            ssr: false,
-            width: width,
-            height: height,
-            devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2) // Limit pixel ratio for performance
-        });
-        
-        // Configure performance settings
-        charts[id].setOption({
-            animation: PERFORMANCE_CONFIG.ENABLE_ANIMATIONS,
-            animationDuration: PERFORMANCE_CONFIG.ENABLE_ANIMATIONS ? 200 : 0,
-            animationEasing: 'cubicOut',
-            lazyUpdate: true,
-            progressive: PERFORMANCE_CONFIG.ENABLE_PROGRESSIVE_RENDERING ? 200 : 0,
-            progressiveThreshold: PERFORMANCE_CONFIG.ENABLE_PROGRESSIVE_RENDERING ? 1000 : 0,
-            hoverLayerThreshold: 8000,
-            useUTC: true
-        });
-        
-        showLoadingState(id);
-        console.log(`Successfully initialized chart: ${id}`);
-    } catch (error) {
-        console.error(`Error initializing chart ${id}:`, error);
-    }
-}
-
-// Get active tab name
-function getActiveTabName() {
-    const activeTab = document.querySelector('.tab-content.active');
-    if (activeTab) {
-        const tabId = activeTab.id;
-        return tabId.replace('-tab', '');
-    }
-    return 'overview'; // default
+    });
+    
+    console.log(`Initialized ${initializedCount} charts`);
 }
 
 // Utility function to check if element is visible
@@ -598,13 +408,7 @@ function initializeResizeHandler() {
         if (resizeTimeout) clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {
             console.log('Resizing charts after window resize');
-            
-            // Only resize visible charts
-            const activeTab = getActiveTabName();
-            const visibleCharts = CHARTS_BY_TAB[activeTab] || [];
-            
-            visibleCharts.forEach(chartId => {
-                const chart = charts[chartId];
+            Object.entries(charts).forEach(([chartId, chart]) => {
                 if (chart && !chart.isDisposed()) {
                     try {
                         const element = document.getElementById(chartId);
@@ -619,19 +423,64 @@ function initializeResizeHandler() {
                     }
                 }
             });
-        }, PERFORMANCE_CONFIG.DEBOUNCE_DELAY);
+        }, 150);
     });
 }
 
 // Sidebar toggle functionality
-// Legacy function - now handled by initializeSidebarCollapse()
 function initializeSidebarToggle() {
-    console.log('initializeSidebarToggle() - delegated to initializeSidebarCollapse()');
-    22
+    const sidebarToggle = document.getElementById('sidebarToggle');
     const sidebar = document.querySelector('.sidebar');
-    const sidebarOverlay = document.querySelector('.sidebar-overlay');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
     
-    if (sidebar) {
+    if (sidebarToggle && sidebar) {
+        function toggleSidebar() {
+            const isMobile = window.innerWidth <= 768;
+            
+            if (isMobile) {
+                // Mobile behavior: show/hide sidebar with overlay
+                sidebar.classList.toggle('show');
+                if (sidebarOverlay) {
+                    sidebarOverlay.classList.toggle('show');
+                }
+            } else {
+                // Desktop behavior: collapse/expand sidebar
+                sidebar.classList.toggle('collapsed');
+                
+                // Update toggle button icon
+                const icon = sidebarToggle.querySelector('svg');
+                if (sidebar.classList.contains('collapsed')) {
+                    // Change to expand icon
+                    icon.innerHTML = `
+                        <path d="M6 9l6 6 6-6"></path>
+                    `;
+                } else {
+                    // Change back to menu icon
+                    icon.innerHTML = `
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    `;
+                }
+            }
+            
+            // Optimize chart layout after sidebar toggle
+            setTimeout(() => {
+                optimizeChartLayout();
+                Object.entries(charts).forEach(([chartId, chart]) => {
+                    if (chart && !chart.isDisposed()) {
+                        try {
+                            chart.resize();
+                        } catch (error) {
+                            console.error(`Error resizing chart ${chartId} after sidebar toggle:`, error);
+                        }
+                    }
+                });
+            }, 300); // Wait for CSS transition to complete
+        }
+        
+        sidebarToggle.addEventListener('click', toggleSidebar);
+        
         // Close sidebar when clicking overlay (mobile)
         if (sidebarOverlay) {
             sidebarOverlay.addEventListener('click', function() {
@@ -661,109 +510,13 @@ function initializeSidebarToggle() {
         document.addEventListener('keydown', function(e) {
             if (e.ctrlKey && e.key === 'b') {
                 e.preventDefault();
-                if (typeof toggleSidebar === 'function') {
-                    toggleSidebar();
-                }
+                toggleSidebar();
             }
         });
         
         console.log('Sidebar toggle initialized');
     } else {
         console.warn('Sidebar toggle button or sidebar not found');
-    }
-}
-
-// Initialize sidebar collapse functionality  
-function initializeSidebarCollapse() {
-    const sidebar = document.querySelector('.sidebar');
-    const mainContent = document.querySelector('.main-content');
-    
-    if (sidebar && mainContent) {
-        // Function to toggle sidebar state
-        function toggleSidebar() {
-            // Toggle collapsed state
-            sidebar.classList.toggle('collapsed');
-            
-            // Update main content class and margin
-            if (sidebar.classList.contains('collapsed')) {
-                mainContent.classList.add('sidebar-collapsed');
-                mainContent.style.marginLeft = '60px'; // --sidebar-collapsed-width
-            } else {
-                mainContent.classList.remove('sidebar-collapsed');
-                mainContent.style.marginLeft = '260px'; // --sidebar-width
-            }
-            
-            // Resize charts after sidebar animation with enhanced timing
-            setTimeout(() => {
-                // Force reflow first to ensure all CSS changes are applied
-                document.body.offsetHeight;
-                
-                // Resize all visible charts with staggered timing for smooth experience
-                Object.entries(charts).forEach(([chartId, chart], index) => {
-                    if (chart && !chart.isDisposed()) {
-                        setTimeout(() => {
-                            try {
-                                const element = document.getElementById(chartId);
-                                if (element && element.offsetWidth > 0 && element.offsetHeight > 0) {
-                                    chart.resize({
-                                        animation: {
-                                            duration: 200,
-                                            easing: 'cubicOut'
-                                        }
-                                    });
-                                }
-                            } catch (error) {
-                                console.error(`Error resizing chart ${chartId}:`, error);
-                            }
-                        }, index * 50); // Stagger resize by 50ms per chart
-                    }
-                });
-                
-                console.log('Charts resized with enhanced flexibility');
-            }, 300);
-            
-            console.log('Sidebar collapsed:', sidebar.classList.contains('collapsed'));
-        }
-        
-        // Add click event to sidebar header toggle button
-        const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
-        if (sidebarToggleBtn) {
-            sidebarToggleBtn.addEventListener('click', toggleSidebar);
-        }
-        
-        // Add click event to entire sidebar for toggle (except interactive elements)
-        sidebar.addEventListener('click', function(e) {
-            // Don't toggle if clicking on links, buttons, or other interactive elements
-            if (!e.target.closest('.menu-link, .refresh-btn, .sidebar-toggle-btn')) {
-                toggleSidebar();
-            }
-        });
-        
-        // Add hover functionality for collapsed sidebar
-        let hoverTimeout;
-        
-        sidebar.addEventListener('mouseenter', function() {
-            if (sidebar.classList.contains('collapsed')) {
-                // Clear any existing timeout
-                clearTimeout(hoverTimeout);
-                
-                // Add hover class for CSS transitions
-                sidebar.classList.add('hover-expanded');
-            }
-        });
-        
-        sidebar.addEventListener('mouseleave', function() {
-            if (sidebar.classList.contains('collapsed')) {
-                // Set timeout before removing hover class
-                hoverTimeout = setTimeout(() => {
-                    sidebar.classList.remove('hover-expanded');
-                }, 100); // Small delay to prevent flickering
-            }
-        });
-        
-        console.log('Sidebar collapse initialized with click-anywhere functionality');
-    } else {
-        console.warn('Sidebar collapse elements not found');
     }
 }
 
@@ -945,7 +698,7 @@ async function fetchDataAndUpdateCharts() {
         const cachedData = dataCache.get(cacheKey);
         const now = Date.now();
         
-        if (cachedData && (now - cachedData.timestamp < PERFORMANCE_CONFIG.CACHE_TTL)) {
+        if (cachedData && (now - cachedData.timestamp < 30000)) { // 30 second cache
             console.log('Using cached data...');
             updateAllCharts(cachedData.data);
             isDataFetching = false;
@@ -1991,13 +1744,13 @@ let tabSwitchDebounce = null;
 let currentActiveTab = 'overview';
 
 function initializeTabs() {
-    const menuLinks = document.querySelectorAll('.menu-link');
-    console.log(`🔧 Found ${menuLinks.length} menu links`);
+    const navItems = document.querySelectorAll('.nav-item');
+    console.log(`🔧 Found ${navItems.length} navigation items`);
     
-    menuLinks.forEach(menuLink => {
-        menuLink.addEventListener('click', (e) => {
+    navItems.forEach(navItem => {
+        navItem.addEventListener('click', (e) => {
             e.preventDefault();
-            const targetTab = menuLink.getAttribute('data-tab');
+            const targetTab = navItem.getAttribute('data-tab');
             if (!targetTab) {
                 console.error('❌ No data-tab attribute found');
                 return;
@@ -2006,20 +1759,17 @@ function initializeTabs() {
             console.log(`🔄 Switching to tab: ${targetTab}`);
             
             // Simple nav animation
-            menuLink.style.transform = 'scale(0.98)';
+            navItem.style.transform = 'scale(0.98)';
             setTimeout(() => {
-                menuLink.style.transform = 'scale(1)';
-            }, PERFORMANCE_CONFIG.DEBOUNCE_DELAY);
+                navItem.style.transform = 'scale(1)';
+            }, 150);
             
-            // Remove active class from all menu links
-            menuLinks.forEach(link => link.classList.remove('active'));
+            // Remove active class from all nav items
+            navItems.forEach(item => item.classList.remove('active'));
             
-            // Add active class to clicked menu link
-            menuLink.classList.add('active');
+            // Add active class to clicked nav item
+            navItem.classList.add('active');
             currentActiveTab = targetTab;
-            
-            // Show loading for target tab first
-            showTabLoading(targetTab);
             
             // Direct tab switching without complex animations
             try {
@@ -2034,26 +1784,10 @@ function initializeTabs() {
                     targetTabElement.classList.add('active');
                     console.log(`✅ Tab switched to: ${targetTab}`);
                     
-                    // Initialize charts for this tab if lazy loading is enabled
-                    if (PERFORMANCE_CONFIG.LAZY_LOAD_ENABLED && !initializedTabs.has(targetTab)) {
-                        initializeTabCharts(targetTab);
-                    }
-                    
                     // Update charts for new tab after a short delay
                     setTimeout(() => {
                         if (lastFetchedData) {
-                            // Only update visible charts
-                            const visibleCharts = CHARTS_BY_TAB[targetTab] || [];
-                            visibleCharts.forEach(chartId => {
-                                if (charts[chartId]) {
-                                    updateChartByType(chartId, lastFetchedData);
-                                }
-                            });
-                            
-                            // Hide loading after charts are updated
-                            setTimeout(() => {
-                                hideTabLoading(targetTab);
-                            }, 200);
+                            updateAllChartsEnhanced(lastFetchedData);
                         }
                     }, 100);
                 } else {
@@ -2253,100 +1987,6 @@ function generateTimeSeriesData() {
 }
 
 // Update all charts including new detailed analysis charts
-// Update individual chart by type with proper error handling
-function updateChartByType(chartId, data) {
-    if (!data || !data.aggregations) {
-        console.error(`Invalid data passed to updateChartByType for ${chartId}`);
-        return;
-    }
-    
-    if (!charts[chartId] || charts[chartId].isDisposed()) {
-        console.warn(`Chart ${chartId} is not initialized or disposed`);
-        return;
-    }
-    
-    const aggs = data.aggregations;
-    
-    try {
-        // Update chart based on its type/id
-        switch (chartId) {
-            // Overview charts
-            case 'sourceChart':
-                updateSourceChart(aggs.nguon_agg.buckets);
-                break;
-            case 'enterpriseChart':
-                updateEnterpriseChart(aggs.xi_nghiep_agg.buckets);
-                break;
-            case 'typeChart':
-                updateTypeChart(aggs.loai_agg.buckets);
-                break;
-            case 'severityChart':
-                updateSeverityChart(aggs.cap_do_agg.buckets);
-                break;
-            case 'targetChart':
-                updateTargetChart(aggs.doi_tuong_agg.buckets);
-                break;
-            case 'statusChart':
-                updateStatusChart(aggs.trang_thai_agg.buckets);
-                break;
-            case 'routeChart':
-                updateRouteChart(aggs.tuyen_agg.buckets);
-                break;
-            case 'contentChart':
-                updateContentChart(aggs.noi_dung_agg.buckets);
-                break;
-            
-            // Detailed charts
-            case 'enterpriseTypeMatrix':
-                updateEnterpriseTypeMatrix(aggs);
-                break;
-            case 'timeTrendChart':
-                updateTimeTrendChart(aggs);
-                break;
-            case 'severityTypeChart':
-                updateSeverityTypeChart(aggs);
-                break;
-            case 'riskAnalysisChart':
-                updateRiskAnalysisChart(aggs);
-                break;
-            case 'routeMonthlyChart':
-                updateRouteMonthlyChart(aggs);
-                break;
-            
-            // Analytics charts
-            case 'cnlxAnalytics':
-            case 'garaAnalytics':
-            case 'nvpvAnalytics':
-                updateTargetAnalysisCharts(aggs);
-                break;
-            case 'praiseBySourceChart':
-            case 'praiseByEnterpriseChart':
-                updatePraiseAnalysisCharts(aggs);
-                break;
-            case 'responseRateChart':
-            case 'responseTimeChart':
-                updateResponseAnalysisCharts(aggs);
-                break;
-            
-            // Export charts
-            case 'networkAnalysisChart':
-                updateNetworkAnalysisChart(aggs);
-                break;
-            case 'heatmapChart':
-                updateHeatmapChart(aggs);
-                break;
-            case 'correlationChart':
-                updateCorrelationChart(aggs);
-                break;
-            
-            default:
-                console.warn(`Unknown chart type: ${chartId}`);
-        }
-    } catch (error) {
-        console.error(`Error updating chart ${chartId}:`, error);
-    }
-}
-
 function updateAllChartsEnhanced(data) {
     if (!data || !data.aggregations) {
         console.error('Invalid data passed to updateAllChartsEnhanced');
@@ -3897,28 +3537,38 @@ function debugAppStatus() {
 // Add debug function to window for testing
 window.debugAppStatus = debugAppStatus;
 
-// Page visibility handling
-document.addEventListener('visibilitychange', function() {
-    pageVisible = !document.hidden;
-    console.log(`Page visibility changed: ${pageVisible ? 'visible' : 'hidden'}`);
+// Initialize app when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing ECharts Dashboard...');
     
-    if (!pageVisible) {
-        // Pause any running animations or updates
-        Object.values(charts).forEach(chart => {
-            if (chart && !chart.isDisposed()) {
-                chart.setOption({ animation: false });
-            }
-        });
-    } else {
-        // Resume animations if enabled
-        if (PERFORMANCE_CONFIG.ENABLE_ANIMATIONS) {
-            Object.values(charts).forEach(chart => {
-                if (chart && !chart.isDisposed()) {
-                    chart.setOption({ animation: true });
-                }
-            });
-        }
-    }
-});
-
-// Remove duplicate DOMContentLoaded listener - functionality merged into main listener above
+    // Initialize components
+    initializeLazyLoading();
+    initializeResizeHandler();
+    initializeTabs();
+    initializeSidebarToggle();
+    initializeExportButtons();
+    
+    // Load initial data
+    const mockData = generateEnhancedMockData();
+    lastFetchedData = mockData;
+    
+    // Optimize initial layout
+    setTimeout(() => {
+        optimizeChartLayout();
+    }, 500);
+    updateAllChartsEnhanced(mockData);
+    updateStats(mockData.aggregations);
+    updateLastUpdateTime();
+    
+    // Apply enhancements after a delay
+    setTimeout(() => {
+        enhanceAllCharts();
+        applyChartEnhancements();
+        
+        // Debug info
+        console.log('App initialization completed');
+        debugAppStatus();
+    }, 2000);
+    
+    console.log('ECharts Dashboard initialization started');
+}); 
