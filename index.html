@@ -4,21 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ECharts Dashboard - Optimized Performance</title>
-    
+
     <!-- Preconnect to external domains for faster loading -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
-    
+
     <!-- DNS prefetch for better performance -->
     <link rel="dns-prefetch" href="https://fonts.googleapis.com">
     <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
     <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
-    
+
     <!-- Optimized font loading -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
+
     <!-- Critical CSS inline for faster initial render -->
     <style>
         body { margin: 0; background: #0a0a0f; color: #e4e4e7; font-family: 'Inter', sans-serif; }
@@ -26,13 +26,14 @@
         .loading-initial { display: flex; align-items: center; justify-content: center; height: 100vh; }
         .loading-initial span { font-size: 1.5rem; color: #64c8ff; }
     </style>
-    
+
     <!-- Defer non-critical scripts -->
     <script defer src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- Motion.js removed for better performance -->
-    
+    <!-- Motion.js for professional animations -->
+    <script defer src="https://cdn.jsdelivr.net/npm/motion@10.18.0/dist/motion.js"></script>
+
     <!-- Main stylesheet -->
     <link rel="stylesheet" href="styles.css">
     <style>
@@ -41,7 +42,7 @@
             backdrop-filter: blur(20px) !important;
             border-radius: 12px !important;
         }
-        
+
         /* Optimized loading animations */
         .loading-animation {
             display: flex;
@@ -51,7 +52,7 @@
             height: 100%;
             gap: 15px;
         }
-        
+
         .loading-circle {
             width: 10px;
             height: 10px;
@@ -61,7 +62,7 @@
             display: inline-block;
             box-shadow: 0 0 15px rgba(100, 200, 255, 0.3);
         }
-        
+
         .loading-text {
             color: #ffffff;
             font-size: 13px;
@@ -69,14 +70,14 @@
             text-align: center;
             margin-top: 5px;
         }
-        
+
         /* Lightweight chart loading */
         .chart-loading {
             position: relative;
             opacity: 0.8;
             pointer-events: none;
         }
-        
+
         @media (prefers-reduced-motion: no-preference) {
             .chart-loading::after {
                 content: '';
@@ -89,7 +90,7 @@
                 animation: shimmer 1.5s ease-in-out infinite;
             }
         }
-        
+
         @keyframes shimmer {
             0% { transform: translateX(-100%); }
             100% { transform: translateX(100%); }
@@ -100,7 +101,7 @@
     <div class="modern-dashboard">
         <!-- Mobile Sidebar Overlay -->
         <div class="sidebar-overlay" id="sidebarOverlay"></div>
-        
+
         <!-- Standard Sidebar Navigation -->
         <aside class="sidebar">
             <!-- Sidebar Header -->
@@ -124,7 +125,7 @@
                     </svg>
                 </button>
             </div>
-            
+
             <!-- Sidebar Navigation Menu -->
             <nav class="sidebar-menu">
                 <div class="menu-section">
@@ -170,7 +171,7 @@
                         </li>
                     </ul>
                 </div>
-                
+
                 <div class="menu-section">
                     <h3 class="menu-title">Công cụ</h3>
                     <ul class="menu-list">
@@ -189,22 +190,26 @@
                     </ul>
                 </div>
             </nav>
-            
+
             <!-- Sidebar Footer -->
             <div class="sidebar-footer">
-                <button id="refreshData" class="refresh-btn">
-                    <div class="refresh-icon">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="23 4 23 10 17 10"></polyline>
-                            <polyline points="1 20 1 14 7 14"></polyline>
-                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                <div class="sidebar-footer-info">
+                    <div class="footer-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
+                            <line x1="9" y1="9" x2="9.01" y2="9"></line>
+                            <line x1="15" y1="9" x2="15.01" y2="9"></line>
                         </svg>
                     </div>
-                    <span class="refresh-text">Làm mới dữ liệu</span>
-                </button>
+                    <div class="footer-content">
+                        <p class="footer-text">Dashboard v2.0</p>
+                        <p class="footer-subtext">Powered by ECharts</p>
+                    </div>
+                </div>
             </div>
         </aside>
-        
+
         <!-- Main Content Area -->
         <main class="main-content">
             <!-- Top Bar -->
@@ -215,7 +220,7 @@
                         <p class="page-subtitle">Hệ thống giám sát và phân tích dữ liệu thời gian thực</p>
                     </div>
                 </div>
-                
+
                 <div class="topbar-right">
                     <div class="quick-stats">
                         <div class="quick-stat">
@@ -230,12 +235,74 @@
                             <span class="quick-stat-label">Tuyến</span>
                             <span class="quick-stat-value" id="totalRoutes">-</span>
                         </div>
-                        <div class="quick-stat">
-                            <span class="quick-stat-label">Cập nhật</span>
-                            <span class="quick-stat-value" id="lastUpdate">--:--</span>
+
+                    </div>
+
+                    <!-- Tools Menu Button -->
+                    <div class="tools-menu-wrapper">
+                        <button id="toolsMenuBtn" class="btn-tools">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                            Tools
+                        </button>
+
+                        <!-- Tools Dropdown Menu -->
+                        <div id="toolsDropdown" class="tools-dropdown">
+                            <div class="dropdown-header">
+                                <h4>🛠️ Developer Tools</h4>
+                            </div>
+                            <div class="dropdown-content">
+                                <button class="dropdown-item" data-action="debug-charts">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                                        <line x1="8" y1="21" x2="16" y2="21"></line>
+                                        <line x1="12" y1="17" x2="12" y2="21"></line>
+                                    </svg>
+                                    <span>Debug Charts Status</span>
+                                </button>
+
+                                <button class="dropdown-item" data-action="toggle-animations">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                                        <polyline points="7.5 4.21 12 6.81 16.5 4.21"></polyline>
+                                        <polyline points="7.5 19.79 7.5 14.6 3 12"></polyline>
+                                        <polyline points="21 12 16.5 14.6 16.5 19.79"></polyline>
+                                    </svg>
+                                    <span id="animationToggleText">Toggle Animations</span>
+                                </button>
+
+                                <button class="dropdown-item" data-action="force-refresh">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="23 4 23 10 17 10"></polyline>
+                                        <polyline points="1 20 1 14 7 14"></polyline>
+                                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                                    </svg>
+                                    <span>Force Refresh with Animations</span>
+                                </button>
+
+                                <div class="dropdown-divider"></div>
+
+                                <button class="dropdown-item danger" data-action="fix-dimensions">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+                                    </svg>
+                                    <span>Fix Chart Dimensions</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    
+
+                    <button id="refreshData" class="btn-primary-action">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="23 4 23 10 17 10"></polyline>
+                            <polyline points="1 20 1 14 7 14"></polyline>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                        </svg>
+                        Làm mới dữ liệu
+                    </button>
+
                     <button id="exportExcel" class="btn-primary-action">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -254,27 +321,27 @@
             <div id="overview-tab" class="tab-content active">
             <div class="chart-grid overview">
                 <div class="chart-container">
-                    <h2>📊 Phân bố theo Nguồn báo cáo</h2>
+                    <h2>📊 Phân bố theo nguồn báo cáo</h2>
                     <div id="sourceChart" class="chart"></div>
                 </div>
 
                 <div class="chart-container">
-                    <h2>🏢 Top 10 Xí nghiệp có nhiều báo cáo nhất</h2>
+                    <h2>🏢 Top 10 xí nghiệp có nhiều báo cáo nhất</h2>
                     <div id="enterpriseChart" class="chart"></div>
                 </div>
 
                 <div class="chart-container">
-                    <h2>📋 Phân bố theo Loại báo cáo</h2>
+                    <h2>📋 Phân bố theo loại báo cáo</h2>
                     <div id="typeChart" class="chart"></div>
                 </div>
 
                 <div class="chart-container">
-                    <h2>⚡ Phân bố theo Cấp độ</h2>
+                    <h2>⚡ Phân bố theo cấp độ</h2>
                     <div id="severityChart" class="chart"></div>
                 </div>
 
                 <div class="chart-container">
-                    <h2>🎯 Phân bố theo Đối tượng</h2>
+                    <h2>🎯 Phân bố theo đối tượng</h2>
                     <div id="targetChart" class="chart"></div>
                 </div>
 
@@ -284,12 +351,12 @@
                 </div>
 
                 <div class="chart-container full-width">
-                    <h2>🚌 Top 15 Tuyến có nhiều báo cáo nhất</h2>
+                    <h2>🚌 Top 15 tuyến có nhiều báo cáo nhất</h2>
                     <div id="routeChart" class="chart chart-large"></div>
                 </div>
 
                 <div class="chart-container full-width">
-                    <h2>📝 Phân bố theo Nội dung báo cáo</h2>
+                    <h2>📝 Phân bố theo nội dung báo cáo</h2>
                     <div id="contentChart" class="chart chart-large"></div>
                 </div>
             </div>
@@ -301,7 +368,7 @@
                 <h2>📋 I. Báo cáo tổng hợp thông tin phản ánh</h2>
                 <div class="chart-grid detailed">
                     <div class="chart-container">
-                        <h3>📊 Phân tích theo Xí nghiệp và Loại</h3>
+                        <h3>📊 Phân tích theo xí nghiệp và loại</h3>
                         <div id="enterpriseTypeMatrix" class="chart"></div>
                     </div>
                     <div class="chart-container">
@@ -315,7 +382,7 @@
                 <h2>🎯 II. Báo cáo theo cấp độ và nhóm lỗi</h2>
                 <div class="chart-grid detailed">
                     <div class="chart-container">
-                        <h3>⚡ Ma trận Cấp độ x Loại</h3>
+                        <h3>⚡ Ma trận cấp độ x loại</h3>
                         <div id="severityTypeChart" class="chart"></div>
                     </div>
                     <div class="chart-container">
@@ -371,7 +438,7 @@
             </div>
 
             <div class="report-section">
-                <h2>🛠️ VI. Báo cáo tổng hợp công tác trả lời tái sản cho khách hàng</h2>
+                <h2>🛠️ VI. Báo cáo tổng hợp công tác trả lời tàai sản cho khách hàng</h2>
                 <div class="chart-grid analytics">
                     <div class="chart-container">
                         <h3>📋 Tỷ lệ phản hồi theo từng xí nghiệp</h3>
@@ -415,12 +482,12 @@
                     </div>
                     <div class="export-card">
                         <h3>🎯 Phân tích đối tượng</h3>
-                        <p>CNLX, NVPV, GARA - Thống kê theo tháng và theo Quý</p>
+                        <p>CNLX, NVPV, GARA - Thống kê theo tháng và theo quý</p>
                         <button class="btn btn-export" data-export="target-analysis">📈 Xuất Excel</button>
                     </div>
                     <div class="export-card">
                         <h3>🚌 Báo cáo tuyến</h3>
-                        <p>Thống kê tuyến bị phản ánh nhiều nhất theo tháng, theo Quý</p>
+                        <p>Thống kê tuyến bị phản ánh nhiều nhất theo tháng, theo quý</p>
                         <button class="btn btn-export" data-export="route-analysis">📋 Xuất Excel</button>
                     </div>
                     <div class="export-card">
@@ -447,7 +514,7 @@
 
     <!-- Main app script -->
     <script defer src="app.js"></script>
-    
+
     <!-- Performance monitoring script -->
     <script>
         window.addEventListener('load', function() {
@@ -460,4 +527,4 @@
         });
     </script>
 </body>
-</html> 
+</html>

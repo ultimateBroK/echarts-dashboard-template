@@ -3,7 +3,7 @@ const ELASTICSEARCH_URL = 'http://124.158.5.222:9400/report_test/_search/';
 
 // Performance optimization configuration
 const PERFORMANCE_CONFIG = {
-    ENABLE_ANIMATIONS: false, // Disable animations for better performance
+    ENABLE_ANIMATIONS: true, // Enable professional animations with Motion.js
     DEBOUNCE_DELAY: 150, // Faster response time
     MAX_CONCURRENT_CHARTS: 3, // Reduce concurrent charts for better performance
     CACHE_TTL: 300000, // 5 minute cache TTL for better performance
@@ -57,19 +57,19 @@ function animateChartEntrance() {
         });
         return;
     }
-    
+
     if (typeof Motion === 'undefined') {
         console.log('Motion.js not loaded, skipping animations');
         return;
     }
-    
+
     try {
         const chartContainers = document.querySelectorAll('.chart-container');
         chartContainers.forEach((container, index) => {
             // Ensure container is visible first
             container.style.opacity = '1';
             container.style.visibility = 'visible';
-            
+
             Motion.animate(container, {
                 y: [50, 0],
                 scale: [0.95, 1],
@@ -80,7 +80,7 @@ function animateChartEntrance() {
                 delay: index * ANIMATION_CONFIG.stagger
             });
         });
-        
+
         // Trigger chart elements animation after delay
         setTimeout(() => {
             animateChartElements();
@@ -93,7 +93,7 @@ function animateChartEntrance() {
 // Chart elements animation with motion.js
 function animateChartElements() {
     if (!PERFORMANCE_CONFIG.ENABLE_ANIMATIONS || typeof Motion === 'undefined') return;
-    
+
     try {
         const charts = document.querySelectorAll('.chart');
         charts.forEach((chart, index) => {
@@ -111,28 +111,53 @@ function animateChartElements() {
     }
 }
 
-// Main tab switching function - THIS WAS MISSING!
+// Enhanced tab switching function with immediate chart dimension fixes
 function showTab(tabName) {
     console.log(`🔄 Switching to tab: ${tabName}`);
-    
+
     // Hide all tab contents
     document.querySelectorAll('.tab-content').forEach(content => {
         content.classList.remove('active');
     });
-    
+
     // Show target tab
     const targetTab = document.getElementById(`${tabName}-tab`);
     if (targetTab) {
         targetTab.classList.add('active');
         console.log(`✅ Tab ${tabName} activated`);
-        
+
         // Update URL hash
         window.location.hash = tabName;
-        
-        // Resize charts in the new tab after a short delay
+
+        // Immediately fix chart dimensions to prevent stretching
+        const tabCharts = CHARTS_BY_TAB[tabName] || [];
+        tabCharts.forEach(chartId => {
+            const element = document.getElementById(chartId);
+            if (element) {
+                // Force proper dimensions immediately
+                const container = element.closest('.chart-container');
+                if (container) {
+                    container.style.height = 'auto';
+                    container.style.minHeight = '450px';
+                    container.style.maxHeight = '600px';
+                }
+                element.style.height = '400px';
+                element.style.minHeight = '400px';
+                element.style.maxHeight = '500px';
+                element.style.width = '100%';
+            }
+        });
+
+        // Then resize and update charts after DOM stabilizes
         setTimeout(() => {
             resizeAndUpdateChartsForTab(`${tabName}-tab`);
-        }, 200);
+        }, 100); // Reduced delay for faster response
+
+        // Final check and fix after a bit more time
+        setTimeout(() => {
+            checkAndFixChartsInTab(tabName);
+        }, 300);
+
     } else {
         console.error(`❌ Tab element not found: ${tabName}-tab`);
     }
@@ -146,11 +171,11 @@ function animateTabSwitch(activeTabId) {
         document.querySelectorAll('.tab-content').forEach(content => {
             content.classList.remove('active');
         });
-        
+
         const newTab = document.getElementById(activeTabId);
         if (newTab) {
             newTab.classList.add('active');
-            
+
             // Use shorter timeout for better performance
             setTimeout(() => {
                 resizeAndUpdateChartsForTab(activeTabId);
@@ -161,29 +186,52 @@ function animateTabSwitch(activeTabId) {
     });
 }
 
-// Optimized chart resize and update function
+// Fixed chart resize and update function with proper height constraints
 function resizeAndUpdateChartsForTab(activeTabId) {
     // Get only charts that are in the current tab
     const currentTabElement = document.getElementById(activeTabId);
     if (!currentTabElement) return;
-    
+
     const chartsInTab = currentTabElement.querySelectorAll('.chart');
     const chartIdsInTab = Array.from(chartsInTab).map(chart => chart.id).filter(id => id);
-    
-    // Resize only visible charts for better performance
+
+    console.log(`🔧 Resizing ${chartIdsInTab.length} charts for tab: ${activeTabId}`);
+
+    // Resize only visible charts with proper height constraints
     let resizePromises = [];
     chartIdsInTab.forEach(chartId => {
         if (charts[chartId] && !charts[chartId].isDisposed()) {
             const promise = new Promise(resolve => {
                 try {
                     const element = document.getElementById(chartId);
-                    if (element && element.offsetWidth > 0 && element.offsetHeight > 0) {
-                        charts[chartId].resize({
-                            width: element.offsetWidth,
-                            height: element.offsetHeight
-                        });
+                    if (element) {
+                        // Force proper container dimensions first
+                        const container = element.closest('.chart-container');
+                        if (container) {
+                            // Reset any stretched heights
+                            container.style.height = 'auto';
+                            element.style.height = '400px'; // Fixed height
+                            element.style.minHeight = '400px';
+                            element.style.maxHeight = '500px'; // Prevent excessive stretching
+                        }
+
+                        // Wait for DOM to update
+                        setTimeout(() => {
+                            const width = element.offsetWidth || 600;
+                            const height = Math.min(element.offsetHeight || 400, 500); // Cap height at 500px
+
+                            console.log(`📐 Resizing chart ${chartId}: ${width}x${height}`);
+
+                            charts[chartId].resize({
+                                width: width,
+                                height: height,
+                                silent: true // Prevent resize animation conflicts
+                            });
+                            resolve();
+                        }, 50);
+                    } else {
+                        resolve();
                     }
-                    resolve();
                 } catch (error) {
                     console.error(`Error resizing chart ${chartId}:`, error);
                     resolve();
@@ -192,7 +240,7 @@ function resizeAndUpdateChartsForTab(activeTabId) {
             resizePromises.push(promise);
         }
     });
-    
+
     // Update charts after resize is complete
     Promise.all(resizePromises).then(() => {
         if (lastFetchedData) {
@@ -205,7 +253,7 @@ function resizeAndUpdateChartsForTab(activeTabId) {
 // Animate chart containers in specific tab with motion.js
 function animateChartContainers(tabSelector) {
     if (typeof Motion === 'undefined') return;
-    
+
     try {
         const containers = document.querySelectorAll(`${tabSelector} .chart-container`);
         containers.forEach((container, index) => {
@@ -245,7 +293,7 @@ function showAdvancedLoading(chartId) {
 function showTabLoading(tabName) {
     const tabCharts = CHARTS_BY_TAB[tabName] || [];
     console.log(`Showing loading for ${tabCharts.length} charts in tab: ${tabName}`);
-    
+
     // Show loading for each chart in batch
     tabCharts.forEach((chartId, index) => {
         setTimeout(() => {
@@ -264,38 +312,270 @@ function hideTabLoading(tabName) {
     });
 }
 
-// Chart update animation with motion.js
+// Enhanced chart update animation with motion.js for data refresh
 function animateChartUpdate(chartId) {
-    if (typeof Motion === 'undefined') return;
-    
+    if (!PERFORMANCE_CONFIG.ENABLE_ANIMATIONS || typeof Motion === 'undefined') return;
+
     const chartElement = document.getElementById(chartId);
     if (!chartElement) return;
-    
+
     try {
+        // Create a smooth data refresh animation
         Motion.animate(chartElement, {
-            scale: [1, 1.02, 1]
+            scale: [1, 1.03, 1],
+            opacity: [1, 0.7, 1]
         }, {
-            duration: 0.4,
+            duration: 0.6,
             ease: [0.68, -0.55, 0.265, 1.55]
+        });
+
+        // Add a subtle glow effect
+        Motion.animate(chartElement, {
+            filter: ['brightness(100%)', 'brightness(110%)', 'brightness(100%)']
+        }, {
+            duration: 0.8,
+            ease: 'easeInOut'
         });
     } catch (error) {
         console.log('Chart update animation error:', error);
     }
 }
 
-// Button click animation with motion.js
+// Enhanced button click animation with motion.js
 function animateButtonClick(element) {
-    if (typeof Motion === 'undefined') return;
-    
+    if (!PERFORMANCE_CONFIG.ENABLE_ANIMATIONS || typeof Motion === 'undefined') return;
+
     try {
+        // Primary scale animation
         Motion.animate(element, {
-            scale: [1, 0.96, 1]
+            scale: [1, 0.96, 1.02, 1]
         }, {
-            duration: 0.2,
+            duration: 0.3,
             ease: [0.25, 0.46, 0.45, 0.94]
         });
+
+        // Subtle color pulse for refresh button
+        if (element.id === 'refreshData') {
+            Motion.animate(element, {
+                backgroundColor: ['var(--primary-color)', 'var(--secondary-color)', 'var(--primary-color)']
+            }, {
+                duration: 0.4,
+                ease: 'easeInOut'
+            });
+        }
     } catch (error) {
         console.log('Button animation error:', error);
+    }
+}
+
+// Animation for data refresh process
+function animateDataRefresh() {
+    if (!PERFORMANCE_CONFIG.ENABLE_ANIMATIONS || typeof Motion === 'undefined') return;
+
+    try {
+        // Animate all visible charts with staggered timing
+        const visibleCharts = document.querySelectorAll('.chart-container:not([style*="display: none"])');
+
+        visibleCharts.forEach((container, index) => {
+            // Staggered fade and scale animation
+            Motion.animate(container, {
+                opacity: [1, 0.5, 1],
+                scale: [1, 0.98, 1],
+                y: [0, -5, 0]
+            }, {
+                duration: 0.8,
+                delay: index * 0.1,
+                ease: [0.4, 0, 0.2, 1]
+            });
+        });
+
+        // Animate stats cards
+        const statsCards = document.querySelectorAll('.stat-card');
+        statsCards.forEach((card, index) => {
+            Motion.animate(card, {
+                scale: [1, 1.05, 1],
+                rotate: [0, 1, 0]
+            }, {
+                duration: 0.5,
+                delay: index * 0.1,
+                ease: 'easeInOut'
+            });
+        });
+
+        console.log('🎬 Data refresh animation started');
+    } catch (error) {
+        console.log('Data refresh animation error:', error);
+    }
+}
+
+// Counter animation for statistics
+function animateStatsCounter(element, targetValue, duration = 1000) {
+    if (!PERFORMANCE_CONFIG.ENABLE_ANIMATIONS || typeof Motion === 'undefined') {
+        // Fallback without animation
+        element.textContent = targetValue.toLocaleString();
+        return;
+    }
+
+    try {
+        const startValue = parseInt(element.textContent.replace(/[^\d]/g, '')) || 0;
+        const difference = targetValue - startValue;
+
+        Motion.animate(
+            { value: startValue },
+            { value: targetValue },
+            {
+                duration: duration / 1000,
+                ease: 'easeOut',
+                onUpdate: (latest) => {
+                    const currentValue = Math.round(latest.value);
+                    element.textContent = currentValue.toLocaleString();
+                },
+                onComplete: () => {
+                    // Ensure final value is accurate
+                    element.textContent = targetValue.toLocaleString();
+
+                    // Add a subtle scale effect when complete
+                    Motion.animate(element, {
+                        scale: [1, 1.1, 1]
+                    }, {
+                        duration: 0.3,
+                        ease: 'easeInOut'
+                    });
+                }
+            }
+        );
+    } catch (error) {
+        console.log('Stats counter animation error:', error);
+        // Fallback
+        element.textContent = targetValue.toLocaleString();
+    }
+}
+
+// Loading spinner animation
+function animateLoadingSpinner(show = true) {
+    if (!PERFORMANCE_CONFIG.ENABLE_ANIMATIONS || typeof Motion === 'undefined') return;
+
+    try {
+        const spinners = document.querySelectorAll('.loading-spinner, [class*="loading"]');
+
+        spinners.forEach(spinner => {
+            if (show) {
+                Motion.animate(spinner, {
+                    opacity: [0, 1],
+                    scale: [0.8, 1],
+                    rotate: [0, 360]
+                }, {
+                    duration: 0.5,
+                    ease: 'easeOut'
+                });
+            } else {
+                Motion.animate(spinner, {
+                    opacity: [1, 0],
+                    scale: [1, 0.8]
+                }, {
+                    duration: 0.3,
+                    ease: 'easeIn'
+                });
+            }
+        });
+    } catch (error) {
+        console.log('Loading spinner animation error:', error);
+    }
+}
+
+// Animation control functions
+function toggleAnimations(enable = null) {
+    // Toggle or set animation state
+    if (enable === null) {
+        PERFORMANCE_CONFIG.ENABLE_ANIMATIONS = !PERFORMANCE_CONFIG.ENABLE_ANIMATIONS;
+    } else {
+        PERFORMANCE_CONFIG.ENABLE_ANIMATIONS = enable;
+    }
+
+    // Update ANIMATION_CONFIG
+    ANIMATION_CONFIG.duration = PERFORMANCE_CONFIG.ENABLE_ANIMATIONS ? 0.8 : 0;
+    ANIMATION_CONFIG.stagger = PERFORMANCE_CONFIG.ENABLE_ANIMATIONS ? 0.1 : 0;
+    ANIMATION_CONFIG.chartsStagger = PERFORMANCE_CONFIG.ENABLE_ANIMATIONS ? 0.15 : 0;
+
+    console.log(`🎬 Animations ${PERFORMANCE_CONFIG.ENABLE_ANIMATIONS ? 'enabled' : 'disabled'}`);
+
+    // Show visual feedback
+    const statusMsg = document.createElement('div');
+    statusMsg.textContent = `Animations ${PERFORMANCE_CONFIG.ENABLE_ANIMATIONS ? 'Enabled' : 'Disabled'}`;
+    statusMsg.style.cssText = `
+        position: fixed; top: 20px; right: 20px; z-index: 9999;
+        background: linear-gradient(135deg, #64c8ff, #00ffc8);
+        color: white; padding: 12px 20px; border-radius: 8px;
+        font-weight: 600; font-family: Inter, sans-serif;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    `;
+    document.body.appendChild(statusMsg);
+
+    // Remove after 3 seconds
+    setTimeout(() => {
+        if (statusMsg.parentElement) {
+            statusMsg.remove();
+        }
+    }, 3000);
+}
+
+// Enhanced welcome animation sequence
+function playWelcomeAnimations() {
+    if (!PERFORMANCE_CONFIG.ENABLE_ANIMATIONS || typeof Motion === 'undefined') {
+        console.log('Welcome animations skipped - Motion.js not available or disabled');
+        return;
+    }
+
+    try {
+        console.log('🎬 Starting welcome animation sequence...');
+
+        // 1. Animate sidebar
+        const sidebar = document.querySelector('.sidebar');
+        if (sidebar) {
+            Motion.animate(sidebar, {
+                x: [-260, 0],
+                opacity: [0, 1]
+            }, {
+                duration: 1,
+                ease: [0.68, -0.55, 0.265, 1.55]
+            });
+        }
+
+        // 2. Animate main content
+        const mainContent = document.querySelector('.main-content');
+        if (mainContent) {
+            Motion.animate(mainContent, {
+                x: [50, 0],
+                opacity: [0, 1]
+            }, {
+                duration: 1.2,
+                delay: 0.3,
+                ease: [0.4, 0, 0.2, 1]
+            });
+        }
+
+        // 3. Animate header stats
+        const statsCards = document.querySelectorAll('.stat-card, .stats-item');
+        statsCards.forEach((card, index) => {
+            Motion.animate(card, {
+                y: [-30, 0],
+                opacity: [0, 1],
+                scale: [0.9, 1]
+            }, {
+                duration: 0.8,
+                delay: 0.5 + index * 0.1,
+                ease: 'easeOut'
+            });
+        });
+
+        // 4. Start chart entrance animations
+        setTimeout(() => {
+            animateChartEntrance();
+        }, 800);
+
+        console.log('✨ Welcome animations completed');
+    } catch (error) {
+        console.log('Welcome animation error:', error);
     }
 }
 
@@ -309,14 +589,14 @@ function createFloatingParticles() {
 // Initialize components in proper sequence to prevent race conditions
 async function initializeComponentsSequentially() {
     console.log('Initializing dashboard components...');
-    
+
     try {
         // Step 1: Initialize charts first
         await new Promise(resolve => {
             initializeCharts();
             setTimeout(resolve, 100); // Allow charts to initialize
         });
-        
+
         // Step 2: Initialize tabs and UI components
         await new Promise(resolve => {
             // initializeTabs(); // DISABLED - using initializeTabNavigation instead
@@ -326,20 +606,20 @@ async function initializeComponentsSequentially() {
             initializeSidebarCollapse();
             setTimeout(resolve, 50); // Allow UI to initialize
         });
-        
+
         // Step 3: Initialize animations only if Motion.js is loaded
         if (typeof Motion !== 'undefined') {
             try {
-                console.log('Initializing Motion.js animations...');
-                animateChartEntrance();
-                createFloatingParticles();
+                console.log('Initializing professional Motion.js animations...');
+                playWelcomeAnimations();
+                createEnhancedFloatingParticles();
             } catch (error) {
                 console.log('Animation initialization error:', error);
             }
         } else {
             console.log('Motion.js not loaded, animations disabled');
         }
-        
+
         // Step 4: Fetch and update data last
         await new Promise(resolve => {
             setTimeout(() => {
@@ -347,22 +627,22 @@ async function initializeComponentsSequentially() {
                 resolve();
             }, 200);
         });
-        
+
         // Step 5: Fallback - ensure all critical charts are initialized
         setTimeout(() => {
             ensureAllChartsInitialized();
-            
+
             // Step 6: Force initial data load for all visible charts
             setTimeout(() => {
                 forceInitialDataLoad();
-                
+
                 // Step 7: Performance check
                 setTimeout(() => {
                     checkPerformance();
                 }, 100);
             }, 300);
         }, 500);
-        
+
         console.log('Dashboard initialization completed successfully');
     } catch (error) {
         console.error('Error during dashboard initialization:', error);
@@ -372,63 +652,80 @@ async function initializeComponentsSequentially() {
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 DOM Content Loaded - Starting initialization...');
-    
+
     // Fix grid classes for proper responsive layout
     fixGridClasses();
-    
+
     // Initialize core functions first
     console.log('🔧 Initializing sidebar...');
     initializeSidebarCollapse();
-    
+
     // Initialize tab navigation immediately
     console.log('🔧 Initializing tabs...');
     initializeTabNavigation();
-    
+
     // Initialize components in proper sequence to prevent race conditions
     console.log('🔧 Starting sequential initialization...');
     initializeComponentsSequentially();
-    
+
     // Remove duplicate tab initialization later in the code
     console.log('⚠️ Note: Duplicate tab initialization will be cleaned up');
-    
-    // Event listeners with animations and null checks
+
+    // Event listeners with professional animations
     const refreshBtn = document.getElementById('refreshData');
     if (refreshBtn) {
         refreshBtn.addEventListener('click', function(e) {
-            // Simple button animation via CSS
-            e.target.style.transform = 'scale(0.95)';
-            setTimeout(() => {
-                e.target.style.transform = 'scale(1)';
-            }, PERFORMANCE_CONFIG.DEBOUNCE_DELAY);
-            
+            // Professional button animation
+            animateButtonClick(e.target);
+
+            // Start data refresh animation
+            animateDataRefresh();
+
             // Force refresh all data and charts
-            console.log('🔄 Refreshing all data...');
+            console.log('🔄 Refreshing all data with animations...');
             const mockData = generateEnhancedMockData();
             lastFetchedData = mockData;
-            forceUpdateAllCharts(mockData);
-            updateStats(mockData.aggregations);
-            updateLastUpdateTime();
-            console.log('✅ Data refresh completed');
+
+            // Animate charts update
+            setTimeout(() => {
+                forceUpdateAllCharts(mockData);
+                updateStatsWithAnimation(mockData.aggregations);
+                updateLastUpdateTime();
+                console.log('✅ Data refresh completed with animations');
+            }, 200); // Small delay to let initial animation start
         });
     } else {
         console.warn('Refresh button not found');
     }
-    
+
     const exportBtn = document.getElementById('exportExcel');
     if (exportBtn) {
         exportBtn.addEventListener('click', function(e) {
-            // Simple button animation via CSS
-            e.target.style.transform = 'scale(0.95)';
-            setTimeout(() => {
-                e.target.style.transform = 'scale(1)';
-            }, PERFORMANCE_CONFIG.DEBOUNCE_DELAY);
-            
+            // Professional button animation
+            animateButtonClick(e.target);
+
+            // Add export loading animation
+            if (PERFORMANCE_CONFIG.ENABLE_ANIMATIONS && typeof Motion !== 'undefined') {
+                try {
+                    // Create download icon animation
+                    Motion.animate(e.target, {
+                        rotate: [0, 360],
+                        scale: [1, 1.1, 1]
+                    }, {
+                        duration: 0.8,
+                        ease: 'easeInOut'
+                    });
+                } catch (error) {
+                    console.log('Export animation error:', error);
+                }
+            }
+
             exportAllToExcel();
         });
     } else {
         console.warn('Export button not found');
     }
-    
+
     // Auto-refresh every 5 minutes (only when page is visible)
     autoRefreshInterval = setInterval(() => {
         if (pageVisible && !isDataFetching) {
@@ -437,32 +734,27 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Skipping auto-refresh: page not visible or fetch in progress');
         }
     }, 5 * 60 * 1000);
-    
-    // Debug: Add keyboard shortcut to check charts (Ctrl+Shift+D)
-    document.addEventListener('keydown', function(e) {
-        if (e.ctrlKey && e.shiftKey && e.key === 'D') {
-            console.log('🔍 DEBUG: Checking all charts status...');
-            debugChartsStatus();
-        }
-    });
+
+    // Initialize tools dropdown menu
+    initializeToolsMenu();
 });
 
 // Cleanup function for memory management
 function cleanupResources() {
     console.log('Cleaning up resources...');
-    
+
     // Clear auto-refresh interval
     if (autoRefreshInterval) {
         clearInterval(autoRefreshInterval);
         autoRefreshInterval = null;
     }
-    
+
     // Clear resize timeout
     if (resizeTimeout) {
         clearTimeout(resizeTimeout);
         resizeTimeout = null;
     }
-    
+
     // Dispose all charts
     Object.keys(charts).forEach(chartId => {
         if (charts[chartId] && !charts[chartId].isDisposed()) {
@@ -470,21 +762,21 @@ function cleanupResources() {
         }
     });
     charts = {};
-    
+
     // Clear observers
     if (chartObserver) {
         chartObserver.disconnect();
         chartObserver = null;
     }
-    
+
     if (lazyLoadObserver) {
         lazyLoadObserver.disconnect();
         lazyLoadObserver = null;
     }
-    
+
     // Clear cache
     dataCache.clear();
-    
+
     console.log('Resources cleaned up successfully');
 }
 
@@ -497,7 +789,7 @@ window.addEventListener('error', function(e) {
     if (e.message && e.message.includes('Permission denied')) {
         return;
     }
-    
+
     // Log meaningful errors only
     if (e.message && !e.message.includes('extension') && !e.message.includes('moz-extension')) {
         console.warn('Dashboard error:', e.message);
@@ -511,7 +803,7 @@ function fixGridClasses() {
     detailedGrids.forEach(grid => {
         grid.className = 'chart-grid detailed';
     });
-    
+
     // Fix analytics tab grids
     const analyticsGrids = document.querySelectorAll('#analytics-tab .chart-grid');
     analyticsGrids.forEach(grid => {
@@ -541,17 +833,17 @@ const HIGH_PRIORITY_CHARTS = ['sourceChart', 'enterpriseChart', 'typeChart', 'se
 // Fallback function to ensure all charts are initialized
 function ensureAllChartsInitialized() {
     console.log('🔍 Checking all charts are initialized...');
-    
+
     // Get all chart IDs from all tabs
     const allChartIds = Object.values(CHARTS_BY_TAB).flat();
-    
+
     let missingCharts = [];
     allChartIds.forEach(chartId => {
         if (!charts[chartId] || charts[chartId].isDisposed()) {
             missingCharts.push(chartId);
         }
     });
-    
+
     // Also check for elements that exist but charts failed to initialize
     let errorCharts = [];
     allChartIds.forEach(chartId => {
@@ -567,11 +859,11 @@ function ensureAllChartsInitialized() {
             }
         }
     });
-    
+
     if (missingCharts.length > 0) {
         console.log(`🚨 Found ${missingCharts.length} missing charts:`, missingCharts);
         console.log('⚡ Initializing missing charts...');
-        
+
         missingCharts.forEach((chartId, index) => {
             setTimeout(() => {
                 console.log(`🔄 Re-initializing: ${chartId}`);
@@ -579,10 +871,10 @@ function ensureAllChartsInitialized() {
             }, index * 100); // Increased delay for stability
         });
     }
-    
+
     if (errorCharts.length > 0) {
         console.log(`🔧 Found ${errorCharts.length} error charts:`, errorCharts);
-        
+
         errorCharts.forEach((chartId, index) => {
             setTimeout(() => {
                 console.log(`🔧 Fixing error chart: ${chartId}`);
@@ -593,7 +885,7 @@ function ensureAllChartsInitialized() {
             }, (missingCharts.length + index) * 100);
         });
     }
-    
+
     if (missingCharts.length === 0 && errorCharts.length === 0) {
         console.log('✅ All charts are properly initialized');
     }
@@ -602,16 +894,16 @@ function ensureAllChartsInitialized() {
 // Force initial data load for all visible charts
 function forceInitialDataLoad() {
     console.log('🔄 Force loading initial data for all visible charts...');
-    
+
     const activeTab = getActiveTabName();
     const activeCharts = CHARTS_BY_TAB[activeTab] || [];
-    
+
     // Generate mock data if not already available
     if (!lastFetchedData) {
         console.log('📊 Generating mock data for initial load...');
         lastFetchedData = generateEnhancedMockData();
     }
-    
+
     // Update active charts with data
     activeCharts.forEach(chartId => {
         if (charts[chartId] && !charts[chartId].isDisposed()) {
@@ -619,36 +911,36 @@ function forceInitialDataLoad() {
             updateChartByType(chartId, lastFetchedData);
         }
     });
-    
+
     // Update stats
     if (lastFetchedData && lastFetchedData.aggregations) {
         updateStats(lastFetchedData.aggregations);
         updateLastUpdateTime();
     }
-    
+
     console.log('✅ Initial data load completed');
 }
 
 // Debug function to check charts status
 function debugChartsStatus() {
     console.log('📊 ==> CHARTS DEBUG STATUS <==');
-    
+
     const allChartIds = Object.values(CHARTS_BY_TAB).flat();
     const activeTab = getActiveTabName();
-    
+
     console.log(`🎯 Active tab: ${activeTab}`);
     console.log(`📋 Total charts defined: ${allChartIds.length}`);
     console.log(`📊 Charts initialized: ${Object.keys(charts).length}`);
     console.log(`🔧 Initialized tabs: ${Array.from(initializedTabs).join(', ')}`);
-    
+
     // Check each tab
     Object.entries(CHARTS_BY_TAB).forEach(([tabName, chartIds]) => {
         console.log(`\n📂 Tab: ${tabName} (${chartIds.length} charts)`);
-        
+
         chartIds.forEach(chartId => {
             const element = document.getElementById(chartId);
             const chart = charts[chartId];
-            
+
             let status = '❌ Missing';
             if (chart && !chart.isDisposed()) {
                 status = '✅ Ready';
@@ -657,11 +949,11 @@ function debugChartsStatus() {
             } else if (element) {
                 status = '🔄 Element exists, chart not initialized';
             }
-            
+
             console.log(`  - ${chartId}: ${status}`);
         });
     });
-    
+
     console.log('📊 ==> END DEBUG STATUS <==');
 }
 
@@ -670,11 +962,11 @@ function checkPerformance() {
     if (window.performance && window.performance.timing) {
         const timing = window.performance.timing;
         const loadTime = timing.loadEventEnd - timing.navigationStart;
-        
+
         // Only log if we have a valid load time
         if (loadTime > 0 && loadTime < 30000) { // Reasonable load time (< 30 seconds)
             console.log(`⚡ Dashboard load time: ${loadTime}ms`);
-            
+
             // Performance assessment
             if (loadTime < 2000) {
                 console.log('🟢 Excellent performance');
@@ -685,11 +977,11 @@ function checkPerformance() {
             }
         }
     }
-    
+
     // Check chart rendering performance
     const chartsCount = Object.keys(charts).length;
     const initializedTabsCount = initializedTabs.size;
-    
+
     console.log(`📊 Performance summary:`);
     console.log(`  - Charts initialized: ${chartsCount}`);
     console.log(`  - Tabs initialized: ${initializedTabsCount}`);
@@ -710,7 +1002,7 @@ function initializeCharts() {
         const activeTab = getActiveTabName();
         console.log(`Initializing active tab: ${activeTab}`);
         initializeTabCharts(activeTab);
-        
+
         // Pre-initialize overview charts if not already active (fallback)
         if (activeTab !== 'overview') {
             console.log('Pre-initializing overview charts as fallback');
@@ -719,7 +1011,7 @@ function initializeCharts() {
     } else {
         // Initialize all charts (old behavior)
         const chartIds = [
-            'sourceChart', 'enterpriseChart', 'typeChart', 
+            'sourceChart', 'enterpriseChart', 'typeChart',
             'severityChart', 'targetChart', 'statusChart',
             'routeChart', 'contentChart',
             // New detailed report charts
@@ -728,7 +1020,7 @@ function initializeCharts() {
             'praiseBySourceChart', 'praiseByEnterpriseChart', 'responseRateChart', 'responseTimeChart',
             'networkAnalysisChart', 'heatmapChart', 'correlationChart'
         ];
-        
+
         chartIds.forEach(id => initializeChart(id));
     }
 }
@@ -739,26 +1031,26 @@ function initializeTabCharts(tabName) {
         console.log(`Tab ${tabName} already initialized`);
         return;
     }
-    
+
     const tabCharts = CHARTS_BY_TAB[tabName] || [];
     console.log(`Initializing ${tabCharts.length} charts for tab: ${tabName}`);
-    
+
     // Separate high priority and regular charts
     const highPriorityCharts = tabCharts.filter(chartId => HIGH_PRIORITY_CHARTS.includes(chartId));
     const regularCharts = tabCharts.filter(chartId => !HIGH_PRIORITY_CHARTS.includes(chartId));
-    
+
     // Initialize high priority charts first (no delay)
     highPriorityCharts.forEach(chartId => {
         initializeChart(chartId);
     });
-    
+
     // Initialize regular charts with progressive delay
     regularCharts.forEach((chartId, index) => {
         setTimeout(() => {
             initializeChart(chartId);
         }, (index + 1) * PERFORMANCE_CONFIG.CHART_RENDER_DELAY);
     });
-    
+
     initializedTabs.add(tabName);
 }
 
@@ -769,22 +1061,22 @@ function initializeChart(id) {
         console.warn(`Chart element not found: ${id}`);
         return;
     }
-    
+
     if (charts[id]) {
         console.log(`Chart ${id} already initialized`);
         return;
     }
-    
+
     try {
         // Check if element has proper dimensions or is in hidden tab
         let width = element.offsetWidth;
         let height = element.offsetHeight;
-        
+
         if (width === 0 || height === 0) {
             // For hidden tabs, use intelligent default sizes based on container class
             const isLargeChart = element.classList.contains('chart-large');
             const isFullWidth = element.parentElement?.classList.contains('full-width');
-            
+
             if (isFullWidth) {
                 element.style.width = '100%';
                 element.style.height = '500px';
@@ -801,7 +1093,7 @@ function initializeChart(id) {
                 width = 600;
                 height = 380;
             }
-            
+
             console.log(`📐 Chart ${id} in hidden tab - using smart defaults: ${width}x${height}`);
         }
 
@@ -815,7 +1107,7 @@ function initializeChart(id) {
             height: height,
             devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2) // Limit pixel ratio for performance
         });
-        
+
         // Configure performance settings
         charts[id].setOption({
             animation: PERFORMANCE_CONFIG.ENABLE_ANIMATIONS,
@@ -827,7 +1119,7 @@ function initializeChart(id) {
             hoverLayerThreshold: 8000,
             useUTC: true
         });
-        
+
         showLoadingState(id);
         console.log(`Successfully initialized chart: ${id}`);
     } catch (error) {
@@ -858,11 +1150,11 @@ function initializeResizeHandler() {
         if (resizeTimeout) clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {
             console.log('Resizing charts after window resize');
-            
+
             // Only resize visible charts
             const activeTab = getActiveTabName();
             const visibleCharts = CHARTS_BY_TAB[activeTab] || [];
-            
+
             visibleCharts.forEach(chartId => {
                 const chart = charts[chartId];
                 if (chart && !chart.isDisposed()) {
@@ -889,7 +1181,7 @@ function initializeSidebarToggle() {
     console.log('initializeSidebarToggle() - delegated to initializeSidebarCollapse()');
     const sidebar = document.querySelector('.sidebar');
     const sidebarOverlay = document.querySelector('.sidebar-overlay');
-    
+
     if (sidebar) {
         // Close sidebar when clicking overlay (mobile)
         if (sidebarOverlay) {
@@ -898,7 +1190,7 @@ function initializeSidebarToggle() {
                 sidebarOverlay.classList.remove('show');
             });
         }
-        
+
         // Handle window resize
         window.addEventListener('resize', function() {
             const isMobile = window.innerWidth <= 768;
@@ -909,13 +1201,13 @@ function initializeSidebarToggle() {
                     sidebarOverlay.classList.remove('show');
                 }
             }
-            
+
             // Optimize layout on resize
             setTimeout(() => {
                 optimizeChartLayout();
             }, 100);
         });
-        
+
         // Handle keyboard shortcut (Ctrl+B)
         document.addEventListener('keydown', function(e) {
             if (e.ctrlKey && e.key === 'b') {
@@ -925,7 +1217,7 @@ function initializeSidebarToggle() {
                 }
             }
         });
-        
+
         console.log('Sidebar toggle initialized');
     } else {
         console.warn('Sidebar toggle button or sidebar not found');
@@ -935,49 +1227,49 @@ function initializeSidebarToggle() {
 // Initialize tab navigation - MISSING FUNCTION!
 function initializeTabNavigation() {
     console.log('🔗 Initializing tab navigation...');
-    
+
     const menuLinks = document.querySelectorAll('.menu-link');
     console.log(`🔧 Found ${menuLinks.length} menu links`);
-    
+
     menuLinks.forEach(menuLink => {
         menuLink.addEventListener('click', (e) => {
             e.preventDefault();
             const targetTab = menuLink.getAttribute('data-tab');
-            
+
             if (!targetTab) {
                 console.error('❌ No data-tab attribute found');
                 return;
             }
-            
+
             console.log(`🔄 Switching to tab: ${targetTab}`);
-            
+
             // Remove active class from all menu links
             menuLinks.forEach(link => link.classList.remove('active'));
-            
+
             // Add active class to clicked menu link
             menuLink.classList.add('active');
-            
+
             // Switch to the tab
             showTab(targetTab);
         });
     });
-    
+
     // Initialize hash-based navigation
     function handleHashChange() {
         const hash = window.location.hash.substring(1);
         if (hash && Object.keys(CHARTS_BY_TAB).includes(hash)) {
             showTab(hash);
-            
+
             // Update active menu link
             menuLinks.forEach(link => {
                 link.classList.toggle('active', link.getAttribute('data-tab') === hash);
             });
         }
     }
-    
+
     // Handle hash changes
     window.addEventListener('hashchange', handleHashChange);
-    
+
     // Initialize with current hash or default to overview
     const currentHash = window.location.hash.substring(1);
     if (currentHash && Object.keys(CHARTS_BY_TAB).includes(currentHash)) {
@@ -986,7 +1278,7 @@ function initializeTabNavigation() {
         showTab('overview');
         window.location.hash = 'overview';
     }
-    
+
     console.log('✅ Tab navigation initialized');
 }
 
@@ -994,17 +1286,17 @@ function initializeTabNavigation() {
 function toggleSidebar() {
     const sidebar = document.querySelector('.sidebar');
     const mainContent = document.querySelector('.main-content');
-    
+
     if (!sidebar || !mainContent) {
         console.warn('Sidebar or main content elements not found');
         return;
     }
-    
+
     console.log('🔄 Toggling sidebar...');
-    
+
     // Toggle collapsed state
     sidebar.classList.toggle('collapsed');
-    
+
     // Update main content class and margin
     if (sidebar.classList.contains('collapsed')) {
         mainContent.classList.add('sidebar-collapsed');
@@ -1015,12 +1307,12 @@ function toggleSidebar() {
         mainContent.style.marginLeft = '260px'; // --sidebar-width
         console.log('📐 Sidebar expanded');
     }
-    
+
     // Resize charts after sidebar animation
     setTimeout(() => {
         // Force reflow first to ensure all CSS changes are applied
         document.body.offsetHeight;
-        
+
         // Resize all visible charts with staggered timing for smooth experience
         Object.entries(charts).forEach(([chartId, chart], index) => {
             if (chart && !chart.isDisposed()) {
@@ -1045,25 +1337,25 @@ function toggleSidebar() {
                 }, index * 50); // Stagger resize by 50ms per chart
             }
         });
-        
+
         console.log('Charts resized after sidebar toggle');
     }, 300);
-    
+
     console.log('Sidebar toggled:', sidebar.classList.contains('collapsed') ? 'collapsed' : 'expanded');
 }
 
-// Initialize sidebar collapse functionality  
+// Initialize sidebar collapse functionality
 function initializeSidebarCollapse() {
     const sidebar = document.querySelector('.sidebar');
     const mainContent = document.querySelector('.main-content');
     const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
     const sidebarOverlay = document.querySelector('.sidebar-overlay');
-    
+
     if (!sidebar || !mainContent) {
         console.warn('Sidebar or main content not found');
         return;
     }
-    
+
     // Add click event to sidebar header toggle button
     if (sidebarToggleBtn) {
         sidebarToggleBtn.addEventListener('click', function(e) {
@@ -1075,7 +1367,7 @@ function initializeSidebarCollapse() {
     } else {
         console.warn('⚠️ Sidebar toggle button not found');
     }
-    
+
     // Add click event to entire sidebar for toggle (except interactive elements)
     sidebar.addEventListener('click', function(e) {
         // Don't toggle if clicking on links, buttons, or other interactive elements
@@ -1083,7 +1375,7 @@ function initializeSidebarCollapse() {
             toggleSidebar();
         }
     });
-    
+
     // Handle mobile sidebar overlay
     if (sidebarOverlay) {
         sidebarOverlay.addEventListener('click', function() {
@@ -1092,7 +1384,7 @@ function initializeSidebarCollapse() {
         });
         console.log('✅ Sidebar overlay initialized');
     }
-    
+
     // Handle window resize for mobile responsiveness
     window.addEventListener('resize', function() {
         const isMobile = window.innerWidth <= 768;
@@ -1104,20 +1396,20 @@ function initializeSidebarCollapse() {
             }
         }
     });
-    
+
     // Add hover functionality for collapsed sidebar
     let hoverTimeout;
-    
+
     sidebar.addEventListener('mouseenter', function() {
         if (sidebar.classList.contains('collapsed')) {
             // Clear any existing timeout
             clearTimeout(hoverTimeout);
-            
+
             // Add hover class for CSS transitions
             sidebar.classList.add('hover-expanded');
         }
     });
-    
+
     sidebar.addEventListener('mouseleave', function() {
         if (sidebar.classList.contains('collapsed')) {
             // Set timeout before removing hover class
@@ -1126,7 +1418,7 @@ function initializeSidebarCollapse() {
             }, 100); // Small delay to prevent flickering
         }
     });
-    
+
     console.log('Sidebar collapse initialized with click-anywhere functionality');
 }
 
@@ -1135,16 +1427,16 @@ function optimizeChartLayout() {
     const sidebar = document.querySelector('.sidebar');
     const mainContent = document.querySelector('.main-content');
     const chartGrids = document.querySelectorAll('.chart-grid');
-    
+
     if (!sidebar || !mainContent || !chartGrids.length) return;
-    
+
     const sidebarWidth = sidebar.classList.contains('collapsed') ? 60 : 260;
     const availableWidth = window.innerWidth - sidebarWidth;
-    
+
     chartGrids.forEach(grid => {
         const chartContainers = grid.querySelectorAll('.chart-container');
         const containerCount = chartContainers.length;
-        
+
         // Calculate optimal columns based on available space
         let optimalColumns = 1;
         if (availableWidth >= 1400) {
@@ -1154,19 +1446,19 @@ function optimizeChartLayout() {
         } else if (availableWidth >= 600) {
             optimalColumns = Math.min(2, containerCount);
         }
-        
+
         // Apply dynamic grid columns
         grid.style.gridTemplateColumns = `repeat(${optimalColumns}, 1fr)`;
-        
+
         // Handle full-width containers
         chartContainers.forEach(container => {
             if (container.classList.contains('full-width')) {
                 container.style.gridColumn = '1 / -1';
             }
-            
+
             // Ensure proper height for container
             container.style.minHeight = '500px';
-            
+
             // Find chart element and update size
             const chart = container.querySelector('.chart');
             if (chart) {
@@ -1175,9 +1467,9 @@ function optimizeChartLayout() {
             }
         });
     });
-    
+
     console.log(`Optimized layout for ${availableWidth}px width`);
-    
+
     // Force chart resize after layout optimization
     setTimeout(() => {
         Object.entries(charts).forEach(([chartId, chart]) => {
@@ -1204,13 +1496,13 @@ function initializeLazyLoading() {
         console.log('IntersectionObserver not supported, loading all charts immediately');
         return;
     }
-    
+
     const options = {
         root: null,
         rootMargin: '50px',
         threshold: 0.1
     };
-    
+
     chartObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
@@ -1226,7 +1518,7 @@ function initializeLazyLoading() {
             }
         });
     }, options);
-    
+
     // Observe all chart containers
     Object.keys(charts).forEach(chartId => {
         const element = document.getElementById(chartId);
@@ -1264,7 +1556,7 @@ function getChartUpdateFunction(chartId) {
         'heatmapChart': updateHeatmapChart,
         'correlationChart': updateCorrelationChart
     };
-    
+
     return updateFunctions[chartId];
 }
 
@@ -1297,24 +1589,24 @@ async function fetchDataAndUpdateCharts() {
         console.log('Data fetch already in progress, skipping...');
         return;
     }
-    
+
     isDataFetching = true;
-    
+
     try {
         console.log('Fetching data from Elasticsearch...');
-        
+
         // Check cache first
         const cacheKey = 'elasticsearch_data';
         const cachedData = dataCache.get(cacheKey);
         const now = Date.now();
-        
+
         if (cachedData && (now - cachedData.timestamp < PERFORMANCE_CONFIG.CACHE_TTL)) {
             console.log('Using cached data...');
             updateAllCharts(cachedData.data);
             isDataFetching = false;
             return;
         }
-        
+
         // Enhanced Elasticsearch query with deeper analysis
         const query = {
             "size": 100, // Get some sample documents
@@ -1468,20 +1760,20 @@ async function fetchDataAndUpdateCharts() {
             data = generateEnhancedMockData();
             console.log('Using enhanced mock data with full analytics support');
         }
-        
+
         // Cache the data
         dataCache.set(cacheKey, {
             data: data,
             timestamp: now
         });
-        
+
         lastFetchedData = data;
         updateAllChartsEnhanced(data);
         updateStats(data);
         updateLastUpdateTime();
-        
+
         console.log('Data updated successfully');
-        
+
     } catch (error) {
         console.error('Error fetching data:', error);
         showError('Lỗi khi tải dữ liệu: ' + error.message);
@@ -1599,7 +1891,7 @@ function generateMockData() {
 // Basic chart updates (legacy function - replaced by updateAllChartsEnhanced)
 function updateBasicCharts(data) {
     const aggs = data.aggregations;
-    
+
     updateSourceChart(aggs.nguon_agg.buckets);
     updateEnterpriseChart(aggs.xi_nghiep_agg.buckets);
     updateTypeChart(aggs.loai_agg.buckets);
@@ -1616,14 +1908,14 @@ function updateSourceChart(data) {
         console.warn('Invalid data for source chart');
         return;
     }
-    
+
     if (!charts.sourceChart) {
         console.warn('Source chart not initialized');
         return;
     }
-    
+
     const total = data.reduce((sum, item) => sum + item.doc_count, 0);
-    
+
     const option = {
         title: {
             text: '',
@@ -1720,7 +2012,7 @@ function updateSourceChart(data) {
         ],
         color: ['#64c8ff', '#00ffc8', '#ff9664', '#a855f7', '#f59e0b', '#ef4444']
     };
-    
+
     hideLoadingState('sourceChart');
     charts.sourceChart.setOption(option);
 }
@@ -1761,7 +2053,7 @@ function updateEnterpriseChart(data) {
                 const name = param.axisValue;
                 const total = data.reduce((sum, item) => sum + item.doc_count, 0);
                 const percentage = ((value / total) * 100).toFixed(1);
-                
+
                 return `
                     <div style="padding: 5px;">
                         <div style="color: #64c8ff; font-weight: 700; margin-bottom: 8px; font-size: 14px;">
@@ -1852,7 +2144,7 @@ function updateEnterpriseChart(data) {
             }
         ]
     };
-    
+
     hideLoadingState('enterpriseChart');
     charts.enterpriseChart.setOption(option);
 }
@@ -1883,7 +2175,7 @@ const enhancedAnimationConfig = {
 // Update type chart
 function updateTypeChart(data) {
     const total = data.reduce((sum, item) => sum + item.doc_count, 0);
-    
+
     const option = {
         title: {
             text: '',
@@ -1968,7 +2260,7 @@ function updateTypeChart(data) {
         ],
         color: ['#ff9664', '#64c8ff', '#00ffc8', '#a855f7', '#f59e0b', '#ef4444']
     };
-    
+
     hideLoadingState('typeChart');
     charts.typeChart.setOption(option);
 }
@@ -1976,7 +2268,7 @@ function updateTypeChart(data) {
 // Update severity chart
 function updateSeverityChart(data) {
     const severityNames = { 1: 'Thấp', 2: 'Trung bình', 3: 'Cao' };
-    
+
     const option = {
         title: {
             text: '',
@@ -2011,7 +2303,7 @@ function updateSeverityChart(data) {
         ],
         color: ['#00ffbb', '#00d4aa', '#ff4757']
     };
-    
+
     hideLoadingState('severityChart');
     charts.severityChart.setOption(option);
 }
@@ -2052,7 +2344,7 @@ function updateTargetChart(data) {
         ],
         color: ['#1890ff', '#52c41a', '#faad14']
     };
-    
+
     hideLoadingState('targetChart');
     charts.targetChart.setOption(option);
 }
@@ -2093,7 +2385,7 @@ function updateStatusChart(data) {
         ],
         color: ['#52c41a', '#faad14']
     };
-    
+
     hideLoadingState('statusChart');
     charts.statusChart.setOption(option);
 }
@@ -2165,7 +2457,7 @@ function updateRouteChart(data) {
             }
         ]
     };
-    
+
     hideLoadingState('routeChart');
     charts.routeChart.setOption(option);
 }
@@ -2234,12 +2526,58 @@ function updateContentChart(data) {
             }
         ]
     };
-    
+
     hideLoadingState('contentChart');
     charts.contentChart.setOption(option);
 }
 
-// Update statistics
+// Update statistics with professional animations
+function updateStatsWithAnimation(data) {
+    // Handle both data.aggregations and direct aggregations
+    let aggs;
+    if (data && data.aggregations) {
+        aggs = data.aggregations;
+    } else if (data && typeof data === 'object' && (data.nguon_agg || data.xi_nghiep_agg)) {
+        // Direct aggregations object
+        aggs = data;
+    } else {
+        console.warn('Invalid data for updateStatsWithAnimation');
+        return;
+    }
+
+    // Update total records with animation
+    const totalRecordsEl = document.getElementById('totalRecords');
+    if (totalRecordsEl && aggs.total_records && aggs.total_records.value) {
+        animateStatsCounter(totalRecordsEl, aggs.total_records.value, 1200);
+    } else if (totalRecordsEl && aggs.nguon_agg && aggs.nguon_agg.buckets) {
+        // Calculate total records from source aggregation as fallback
+        const totalRecords = aggs.nguon_agg.buckets.reduce((sum, bucket) => sum + bucket.doc_count, 0);
+        animateStatsCounter(totalRecordsEl, totalRecords, 1200);
+    } else {
+        console.warn('Total records data or element not found');
+        if (totalRecordsEl) totalRecordsEl.textContent = 'N/A';
+    }
+
+    // Update total enterprises with animation
+    const totalEnterprisesEl = document.getElementById('totalEnterprises');
+    if (totalEnterprisesEl && aggs.xi_nghiep_agg && aggs.xi_nghiep_agg.buckets) {
+        animateStatsCounter(totalEnterprisesEl, aggs.xi_nghiep_agg.buckets.length, 800);
+    } else {
+        console.warn('Enterprise data or element not found');
+        if (totalEnterprisesEl) totalEnterprisesEl.textContent = 'N/A';
+    }
+
+    // Update total routes with animation
+    const totalRoutesEl = document.getElementById('totalRoutes');
+    if (totalRoutesEl && aggs.tuyen_agg && aggs.tuyen_agg.buckets) {
+        animateStatsCounter(totalRoutesEl, aggs.tuyen_agg.buckets.length, 600);
+    } else {
+        console.warn('Route data or element not found');
+        if (totalRoutesEl) totalRoutesEl.textContent = 'N/A';
+    }
+}
+
+// Update statistics (legacy function for backward compatibility)
 function updateStats(data) {
     // Handle both data.aggregations and direct aggregations
     let aggs;
@@ -2252,7 +2590,7 @@ function updateStats(data) {
         console.warn('Invalid data for updateStats');
         return;
     }
-    
+
     // Update total records with null checks
     const totalRecordsEl = document.getElementById('totalRecords');
     if (totalRecordsEl && aggs.total_records && aggs.total_records.value) {
@@ -2261,7 +2599,7 @@ function updateStats(data) {
         console.warn('Total records data or element not found');
         if (totalRecordsEl) totalRecordsEl.textContent = 'N/A';
     }
-    
+
     // Update total enterprises
     const totalEnterprisesEl = document.getElementById('totalEnterprises');
     if (totalEnterprisesEl && aggs.xi_nghiep_agg && aggs.xi_nghiep_agg.buckets) {
@@ -2270,7 +2608,7 @@ function updateStats(data) {
         console.warn('Enterprise data or element not found');
         if (totalEnterprisesEl) totalEnterprisesEl.textContent = 'N/A';
     }
-    
+
     // Update total routes
     const totalRoutesEl = document.getElementById('totalRoutes');
     if (totalRoutesEl && aggs.tuyen_agg && aggs.tuyen_agg.buckets) {
@@ -2279,7 +2617,7 @@ function updateStats(data) {
         console.warn('Route data or element not found');
         if (totalRoutesEl) totalRoutesEl.textContent = 'N/A';
     }
-    
+
     // Update total records (alternative calculation from source aggregation)
     if (totalRecordsEl && aggs.nguon_agg && aggs.nguon_agg.buckets) {
         // Calculate total records from source aggregation as fallback
@@ -2297,7 +2635,7 @@ function updateLastUpdateTime() {
         console.warn('Last update element not found');
         return;
     }
-    
+
     try {
         const now = new Date();
         const timeString = now.toLocaleString('vi-VN', {
@@ -2321,11 +2659,11 @@ function showError(message) {
         const errorDiv = document.createElement('div');
         errorDiv.className = 'error';
         errorDiv.textContent = message || 'Đã xảy ra lỗi không xác định';
-        
+
         const container = document.querySelector('.container');
         if (container) {
             container.insertBefore(errorDiv, container.firstChild);
-            
+
             // Remove error after 5 seconds
             setTimeout(() => {
                 if (errorDiv.parentNode) {
@@ -2336,7 +2674,7 @@ function showError(message) {
             // Fallback: use alert if container not found
             alert(message || 'Đã xảy ra lỗi không xác định');
         }
-        
+
         // Hide loading for all charts safely
         Object.values(charts).forEach(chart => {
             if (chart && typeof chart.hideLoading === 'function') {
@@ -2364,7 +2702,7 @@ function initializeTabs_DISABLED() {
     return;
     const menuLinks = document.querySelectorAll('.menu-link');
     console.log(`🔧 Found ${menuLinks.length} menu links`);
-    
+
     menuLinks.forEach(menuLink => {
         menuLink.addEventListener('click', (e) => {
             e.preventDefault();
@@ -2373,47 +2711,47 @@ function initializeTabs_DISABLED() {
                 console.error('❌ No data-tab attribute found');
                 return;
             }
-            
+
             console.log(`🔄 Switching to tab: ${targetTab}`);
-            
+
             // Simple nav animation
             menuLink.style.transform = 'scale(0.98)';
             setTimeout(() => {
                 menuLink.style.transform = 'scale(1)';
             }, PERFORMANCE_CONFIG.DEBOUNCE_DELAY);
-            
+
             // Remove active class from all menu links
             menuLinks.forEach(link => link.classList.remove('active'));
-            
+
             // Add active class to clicked menu link
             menuLink.classList.add('active');
             currentActiveTab = targetTab;
-            
+
             // Show loading for target tab first
             showTabLoading(targetTab);
-            
+
             // Direct tab switching without complex animations
             try {
                 // Hide all tabs
                 document.querySelectorAll('.tab-content').forEach(content => {
                     content.classList.remove('active');
                 });
-                
+
                 // Show target tab
                 const targetTabElement = document.getElementById(targetTab + '-tab');
                 if (targetTabElement) {
                     targetTabElement.classList.add('active');
                     console.log(`✅ Tab switched to: ${targetTab}`);
-                    
+
                     // Debug: Check charts in this tab
                     const tabCharts = CHARTS_BY_TAB[targetTab] || [];
                     console.log(`📊 Tab ${targetTab} should have ${tabCharts.length} charts:`, tabCharts);
-                    
+
                     // Initialize charts for this tab if lazy loading is enabled
                     if (PERFORMANCE_CONFIG.LAZY_LOAD_ENABLED && !initializedTabs.has(targetTab)) {
                         initializeTabCharts(targetTab);
                     }
-                    
+
                     // Update charts for new tab after a short delay
                     setTimeout(() => {
                         if (lastFetchedData) {
@@ -2424,7 +2762,7 @@ function initializeTabs_DISABLED() {
                                     updateChartByType(chartId, lastFetchedData);
                                 }
                             });
-                            
+
                             // Hide loading after charts are updated
                             setTimeout(() => {
                                 hideTabLoading(targetTab);
@@ -2455,7 +2793,7 @@ function initializeExportButtons() {
 // Enhanced mock data generator with deeper analytics
 function generateEnhancedMockData() {
     const baseData = generateMockData();
-    
+
     // Add enhanced aggregations
     baseData.aggregations.enterprise_type_matrix = {
         buckets: [
@@ -2485,7 +2823,7 @@ function generateEnhancedMockData() {
             }
         ]
     };
-    
+
     baseData.aggregations.severity_type_matrix = {
         buckets: [
             {
@@ -2523,7 +2861,7 @@ function generateEnhancedMockData() {
             }
         ]
     };
-    
+
     baseData.aggregations.target_analysis = {
         buckets: [
             {
@@ -2582,11 +2920,11 @@ function generateEnhancedMockData() {
             }
         ]
     };
-    
+
     baseData.aggregations.time_analysis = {
         buckets: generateTimeSeriesData()
     };
-    
+
     baseData.aggregations.praise_analysis = {
         doc_count: 1671,
         by_source: {
@@ -2606,7 +2944,7 @@ function generateEnhancedMockData() {
             ]
         }
     };
-    
+
     return baseData;
 }
 
@@ -2614,7 +2952,7 @@ function generateEnhancedMockData() {
 function generateTimeSeriesData() {
     const data = [];
     const startTime = new Date('1970-01-01T00:29:03');
-    
+
     for (let i = 0; i < 9; i++) {
         const time = new Date(startTime.getTime() + i * 1000);
         data.push({
@@ -2623,7 +2961,7 @@ function generateTimeSeriesData() {
             doc_count: Math.floor(Math.random() * 2000) + 500
         });
     }
-    
+
     return data;
 }
 
@@ -2634,14 +2972,14 @@ function updateChartByType(chartId, data) {
         console.error(`Invalid data passed to updateChartByType for ${chartId}`);
         return;
     }
-    
+
     if (!charts[chartId] || charts[chartId].isDisposed()) {
         console.warn(`Chart ${chartId} is not initialized or disposed`);
         return;
     }
-    
+
     const aggs = data.aggregations;
-    
+
     try {
         // Update chart based on its type/id
         switch (chartId) {
@@ -2670,7 +3008,7 @@ function updateChartByType(chartId, data) {
             case 'contentChart':
                 updateContentChart(aggs.noi_dung_agg.buckets);
                 break;
-            
+
             // Detailed charts
             case 'enterpriseTypeMatrix':
                 updateEnterpriseTypeMatrix(aggs);
@@ -2687,7 +3025,7 @@ function updateChartByType(chartId, data) {
             case 'routeMonthlyChart':
                 updateRouteMonthlyChart(aggs);
                 break;
-            
+
             // Analytics charts
             case 'cnlxAnalytics':
             case 'garaAnalytics':
@@ -2702,7 +3040,7 @@ function updateChartByType(chartId, data) {
             case 'responseTimeChart':
                 updateResponseAnalysisCharts(aggs);
                 break;
-            
+
             // Export charts
             case 'networkAnalysisChart':
                 updateNetworkAnalysisChart(aggs);
@@ -2713,7 +3051,7 @@ function updateChartByType(chartId, data) {
             case 'correlationChart':
                 updateCorrelationChart(aggs);
                 break;
-            
+
             default:
                 console.warn(`Unknown chart type: ${chartId}`);
         }
@@ -2727,14 +3065,14 @@ function updateAllChartsEnhanced(data) {
         console.error('Invalid data passed to updateAllChartsEnhanced');
         return;
     }
-    
+
     const aggs = data.aggregations;
     console.log('Updating charts with enhanced data...');
-    
+
     // Get currently active tab to prioritize updates
     const activeTab = document.querySelector('.tab-content.active');
     const activeTabId = activeTab ? activeTab.id : 'overview-tab';
-    
+
     // Always update overview charts (they're most commonly viewed)
     if (activeTabId === 'overview-tab' || !activeTab) {
         console.log('Updating overview charts');
@@ -2747,57 +3085,57 @@ function updateAllChartsEnhanced(data) {
         updateRouteChart(aggs.tuyen_agg.buckets);
         updateContentChart(aggs.noi_dung_agg.buckets);
     }
-    
+
     // Update charts based on active tab for better performance
     // Use requestAnimationFrame for smooth chart updates
     requestAnimationFrame(() => {
         if (activeTabId === 'detailed-tab' || !activeTab) {
             console.log('🔄 Updating detailed charts');
             const detailedUpdates = [];
-            
+
             if (aggs.enterprise_type_matrix) {
                 detailedUpdates.push(() => updateEnterpriseTypeMatrix(aggs.enterprise_type_matrix.buckets));
             }
-            
+
             if (aggs.time_analysis) {
                 detailedUpdates.push(() => updateTimeTrendChart(aggs.time_analysis.buckets));
             }
-            
+
             if (aggs.severity_type_matrix) {
                 detailedUpdates.push(() => updateSeverityTypeChart(aggs.severity_type_matrix.buckets));
                 detailedUpdates.push(() => updateRiskAnalysisChart(aggs.severity_type_matrix.buckets));
             }
-            
+
             if (aggs.tuyen_agg) {
                 detailedUpdates.push(() => updateRouteMonthlyChart(aggs.tuyen_agg.buckets));
             }
-            
+
             // Batch update with small delays for smooth performance
             detailedUpdates.forEach((updateFn, index) => {
                 setTimeout(updateFn, index * 50);
             });
         }
-        
+
         if (activeTabId === 'analytics-tab' || !activeTab) {
             console.log('📈 Updating analytics charts');
             const analyticsUpdates = [];
-            
+
             if (aggs.target_analysis) {
                 analyticsUpdates.push(() => updateTargetAnalysisCharts(aggs.target_analysis.buckets));
             }
-            
+
             if (aggs.praise_analysis) {
                 analyticsUpdates.push(() => updatePraiseAnalysisCharts(aggs.praise_analysis));
             }
-            
+
             analyticsUpdates.push(() => updateResponseAnalysisCharts(aggs));
-            
+
             // Batch update with small delays
             analyticsUpdates.forEach((updateFn, index) => {
                 setTimeout(updateFn, index * 50);
             });
         }
-        
+
         if (activeTabId === 'exports-tab' || !activeTab) {
             console.log('📤 Updating exports charts');
             const exportsUpdates = [
@@ -2805,77 +3143,124 @@ function updateAllChartsEnhanced(data) {
                 () => updateHeatmapChart(aggs),
                 () => updateCorrelationChart(aggs)
             ];
-            
+
             // Batch update with small delays
             exportsUpdates.forEach((updateFn, index) => {
                 setTimeout(updateFn, index * 50);
             });
         }
     });
-    
+
     console.log(`Charts update completed for tab: ${activeTabId}`);
 }
 
-// Force update all charts (for refresh button)
+// Force update all charts with animations (for refresh button)
 function forceUpdateAllCharts(data) {
     if (!data || !data.aggregations) {
         console.error('Invalid data passed to forceUpdateAllCharts');
         return;
     }
-    
+
     const aggs = data.aggregations;
-    console.log('Force updating all charts...');
-    
-    // Overview charts
-    updateSourceChart(aggs.nguon_agg.buckets);
-    updateEnterpriseChart(aggs.xi_nghiep_agg.buckets);
-    updateTypeChart(aggs.loai_agg.buckets);
-    updateSeverityChart(aggs.cap_do_agg.buckets);
-    updateTargetChart(aggs.doi_tuong_agg.buckets);
-    updateStatusChart(aggs.trang_thai_agg.buckets);
-    updateRouteChart(aggs.tuyen_agg.buckets);
-    updateContentChart(aggs.noi_dung_agg.buckets);
-    
-    // Detailed charts
+    console.log('Force updating all charts with animations...');
+
+    // Define chart updates with animation timing
+    const chartUpdates = [
+        { id: 'sourceChart', updateFn: () => updateSourceChart(aggs.nguon_agg.buckets) },
+        { id: 'enterpriseChart', updateFn: () => updateEnterpriseChart(aggs.xi_nghiep_agg.buckets) },
+        { id: 'typeChart', updateFn: () => updateTypeChart(aggs.loai_agg.buckets) },
+        { id: 'severityChart', updateFn: () => updateSeverityChart(aggs.cap_do_agg.buckets) },
+        { id: 'targetChart', updateFn: () => updateTargetChart(aggs.doi_tuong_agg.buckets) },
+        { id: 'statusChart', updateFn: () => updateStatusChart(aggs.trang_thai_agg.buckets) },
+        { id: 'routeChart', updateFn: () => updateRouteChart(aggs.tuyen_agg.buckets) },
+        { id: 'contentChart', updateFn: () => updateContentChart(aggs.noi_dung_agg.buckets) }
+    ];
+
+    // Update charts with staggered animations
+    chartUpdates.forEach((chart, index) => {
+        setTimeout(() => {
+            chart.updateFn();
+            // Add animation after chart update
+            setTimeout(() => {
+                animateChartUpdate(chart.id);
+            }, 100);
+        }, index * 150); // Stagger updates for smooth experience
+    });
+
+    // Detailed charts with animations
+    const detailedChartUpdates = [];
     if (aggs.enterprise_type_matrix) {
-        updateEnterpriseTypeMatrix(aggs.enterprise_type_matrix.buckets);
+        detailedChartUpdates.push({ id: 'enterpriseTypeMatrix', updateFn: () => updateEnterpriseTypeMatrix(aggs.enterprise_type_matrix.buckets) });
     }
     if (aggs.time_analysis) {
-        updateTimeTrendChart(aggs.time_analysis.buckets);
+        detailedChartUpdates.push({ id: 'timeTrendChart', updateFn: () => updateTimeTrendChart(aggs.time_analysis.buckets) });
     }
     if (aggs.severity_type_matrix) {
-        updateSeverityTypeChart(aggs.severity_type_matrix.buckets);
-        updateRiskAnalysisChart(aggs.severity_type_matrix.buckets);
+        detailedChartUpdates.push({ id: 'severityTypeChart', updateFn: () => updateSeverityTypeChart(aggs.severity_type_matrix.buckets) });
+        detailedChartUpdates.push({ id: 'riskAnalysisChart', updateFn: () => updateRiskAnalysisChart(aggs.severity_type_matrix.buckets) });
     }
     if (aggs.tuyen_agg) {
-        updateRouteMonthlyChart(aggs.tuyen_agg.buckets);
+        detailedChartUpdates.push({ id: 'routeMonthlyChart', updateFn: () => updateRouteMonthlyChart(aggs.tuyen_agg.buckets) });
     }
-    
-    // Analytics charts
+
+    // Update detailed charts with animations
+    detailedChartUpdates.forEach((chart, index) => {
+        setTimeout(() => {
+            chart.updateFn();
+            setTimeout(() => {
+                animateChartUpdate(chart.id);
+            }, 100);
+        }, (chartUpdates.length + index) * 150); // Continue after overview charts
+    });
+
+    // Analytics charts with animations
+    const analyticsChartUpdates = [];
     if (aggs.target_analysis) {
-        updateTargetAnalysisCharts(aggs.target_analysis.buckets);
+        analyticsChartUpdates.push({ id: 'cnlxAnalytics', updateFn: () => updateTargetAnalysisCharts(aggs.target_analysis.buckets) });
     }
     if (aggs.praise_analysis) {
-        updatePraiseAnalysisCharts(aggs.praise_analysis);
+        analyticsChartUpdates.push({ id: 'praiseBySourceChart', updateFn: () => updatePraiseAnalysisCharts(aggs.praise_analysis) });
     }
-    updateResponseAnalysisCharts(aggs);
-    
-    // Exports charts
-    updateNetworkAnalysisChart(aggs);
-    updateHeatmapChart(aggs);
-    updateCorrelationChart(aggs);
-    
-    console.log('Force update all charts completed');
+    analyticsChartUpdates.push({ id: 'responseRateChart', updateFn: () => updateResponseAnalysisCharts(aggs) });
+
+    // Update analytics charts with animations
+    analyticsChartUpdates.forEach((chart, index) => {
+        setTimeout(() => {
+            chart.updateFn();
+            setTimeout(() => {
+                animateChartUpdate(chart.id);
+            }, 100);
+        }, (chartUpdates.length + detailedChartUpdates.length + index) * 150);
+    });
+
+    // Exports charts with animations
+    const exportsChartUpdates = [
+        { id: 'networkAnalysisChart', updateFn: () => updateNetworkAnalysisChart(aggs) },
+        { id: 'heatmapChart', updateFn: () => updateHeatmapChart(aggs) },
+        { id: 'correlationChart', updateFn: () => updateCorrelationChart(aggs) }
+    ];
+
+    // Update exports charts with animations
+    exportsChartUpdates.forEach((chart, index) => {
+        setTimeout(() => {
+            chart.updateFn();
+            setTimeout(() => {
+                animateChartUpdate(chart.id);
+            }, 100);
+        }, (chartUpdates.length + detailedChartUpdates.length + analyticsChartUpdates.length + index) * 150);
+    });
+
+    console.log('🎬 Force update all charts completed with professional animations');
 }
 
 // Enterprise Type Matrix Chart
 function updateEnterpriseTypeMatrix(data) {
     if (!charts.enterpriseTypeMatrix) return;
-    
-    const categories = [...new Set(data.flatMap(item => 
+
+    const categories = [...new Set(data.flatMap(item =>
         item.by_type.buckets.map(bucket => bucket.key)
     ))];
-    
+
     const series = categories.map(category => ({
         name: category,
         type: 'bar',
@@ -2885,7 +3270,7 @@ function updateEnterpriseTypeMatrix(data) {
             return bucket ? bucket.doc_count : 0;
         })
     }));
-    
+
     const option = {
         title: {
             text: '',
@@ -2942,7 +3327,7 @@ function updateEnterpriseTypeMatrix(data) {
         series: series,
         color: ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272']
     };
-    
+
     charts.enterpriseTypeMatrix.hideLoading();
     charts.enterpriseTypeMatrix.setOption(option);
 }
@@ -2950,7 +3335,7 @@ function updateEnterpriseTypeMatrix(data) {
 // Time Trend Chart
 function updateTimeTrendChart(data) {
     if (!charts.timeTrendChart) return;
-    
+
     const option = {
         title: {
             text: '',
@@ -3011,7 +3396,7 @@ function updateTimeTrendChart(data) {
         }],
         color: ['#00ffbb']
     };
-    
+
     charts.timeTrendChart.hideLoading();
     charts.timeTrendChart.setOption(option);
 }
@@ -3019,19 +3404,19 @@ function updateTimeTrendChart(data) {
 // Severity Type Matrix Chart
 function updateSeverityTypeChart(data) {
     if (!charts.severityTypeChart) return;
-    
+
     const severityNames = { 1: 'Thấp', 2: 'Trung bình', 3: 'Cao' };
-    const categories = [...new Set(data.flatMap(item => 
+    const categories = [...new Set(data.flatMap(item =>
         item.by_type.buckets.map(bucket => bucket.key)
     ))];
-    
+
     const chartData = [];
     data.forEach((severityItem, i) => {
         severityItem.by_type.buckets.forEach((typeItem, j) => {
             chartData.push([i, j, typeItem.doc_count]);
         });
     });
-    
+
     const option = {
         title: {
             text: '',
@@ -3110,7 +3495,7 @@ function updateSeverityTypeChart(data) {
             }
         }]
     };
-    
+
     charts.severityTypeChart.hideLoading();
     charts.severityTypeChart.setOption(option);
 }
@@ -3118,9 +3503,9 @@ function updateSeverityTypeChart(data) {
 // Risk Analysis Chart
 function updateRiskAnalysisChart(data) {
     if (!charts.riskAnalysisChart) return;
-    
+
     const riskData = data.map(item => {
-        const highRiskTypes = item.by_type.buckets.filter(type => 
+        const highRiskTypes = item.by_type.buckets.filter(type =>
             ['Khiếu nại', 'Báo cáo sự cố', 'Phản ánh'].includes(type.key)
         );
         const riskScore = highRiskTypes.reduce((sum, type) => sum + type.doc_count, 0);
@@ -3132,7 +3517,7 @@ function updateRiskAnalysisChart(data) {
             }
         };
     });
-    
+
     const option = {
         title: {
             text: '',
@@ -3159,7 +3544,7 @@ function updateRiskAnalysisChart(data) {
             }
         }]
     };
-    
+
     charts.riskAnalysisChart.hideLoading();
     charts.riskAnalysisChart.setOption(option);
 }
@@ -3167,7 +3552,7 @@ function updateRiskAnalysisChart(data) {
 // Route Monthly Chart
 function updateRouteMonthlyChart(data) {
     if (!charts.routeMonthlyChart) return;
-    
+
     const option = {
         title: {
             text: '',
@@ -3235,7 +3620,7 @@ function updateRouteMonthlyChart(data) {
             }
         }]
     };
-    
+
     charts.routeMonthlyChart.hideLoading();
     charts.routeMonthlyChart.setOption(option);
 }
@@ -3277,7 +3662,7 @@ function updateTargetAnalysisCharts(data) {
             charts.cnlxAnalytics.setOption(option);
         }
     }
-    
+
     // GARA Analytics
     if (charts.garaAnalytics) {
         const garaData = data.find(item => item.key === 'GARA');
@@ -3313,7 +3698,7 @@ function updateTargetAnalysisCharts(data) {
             charts.garaAnalytics.setOption(option);
         }
     }
-    
+
     // NVPV Analytics
     if (charts.nvpvAnalytics) {
         const nvpvData = data.find(item => item.key === 'NVPV');
@@ -3411,7 +3796,7 @@ function updatePraiseAnalysisCharts(data) {
         charts.praiseBySourceChart.hideLoading();
         charts.praiseBySourceChart.setOption(option);
     }
-    
+
     // Praise by Enterprise
     if (charts.praiseByEnterpriseChart) {
         const option = {
@@ -3483,7 +3868,7 @@ function updateResponseAnalysisCharts(aggs) {
             rate: Math.floor(Math.random() * 40) + 60, // Mock response rate 60-100%
             count: item.doc_count
         }));
-        
+
         const option = {
             title: {
                 text: '',
@@ -3548,14 +3933,14 @@ function updateResponseAnalysisCharts(aggs) {
         charts.responseRateChart.hideLoading();
         charts.responseRateChart.setOption(option);
     }
-    
+
     // Response Time Chart
     if (charts.responseTimeChart) {
         const timeData = aggs.xi_nghiep_agg.buckets.map(item => ({
             name: item.key,
             time: Math.floor(Math.random() * 48) + 2 // Mock response time 2-50 hours
         }));
-        
+
         const option = {
             title: {
                 text: '',
@@ -3621,11 +4006,11 @@ function updateResponseAnalysisCharts(aggs) {
 // Network Analysis Chart
 function updateNetworkAnalysisChart(aggs) {
     if (!charts.networkAnalysisChart) return;
-    
+
     // Create network data showing relationships between entities
     const nodes = [];
     const links = [];
-    
+
     // Add enterprise nodes
     aggs.xi_nghiep_agg.buckets.slice(0, 6).forEach((enterprise, i) => {
         nodes.push({
@@ -3636,7 +4021,7 @@ function updateNetworkAnalysisChart(aggs) {
             symbolSize: Math.sqrt(enterprise.doc_count) / 2
         });
     });
-    
+
     // Add source nodes
     aggs.nguon_agg.buckets.forEach((source, i) => {
         nodes.push({
@@ -3647,7 +4032,7 @@ function updateNetworkAnalysisChart(aggs) {
             symbolSize: Math.sqrt(source.doc_count) / 3
         });
     });
-    
+
     // Create links between enterprises and sources
     aggs.xi_nghiep_agg.buckets.slice(0, 6).forEach(enterprise => {
         aggs.nguon_agg.buckets.forEach(source => {
@@ -3658,7 +4043,7 @@ function updateNetworkAnalysisChart(aggs) {
             });
         });
     });
-    
+
     const option = {
         title: {
             text: '',
@@ -3707,7 +4092,7 @@ function updateNetworkAnalysisChart(aggs) {
         }],
         color: ['#3498db', '#e74c3c', '#2ecc71', '#f39c12']
     };
-    
+
     charts.networkAnalysisChart.hideLoading();
     charts.networkAnalysisChart.setOption(option);
 }
@@ -3715,18 +4100,18 @@ function updateNetworkAnalysisChart(aggs) {
 // Heatmap Chart
 function updateHeatmapChart(aggs) {
     if (!charts.heatmapChart) return;
-    
+
     // Create heatmap showing enterprise vs type intensity
     const enterprises = aggs.xi_nghiep_agg.buckets.slice(0, 8);
     const types = aggs.loai_agg.buckets.slice(0, 5);
-    
+
     const data = [];
     enterprises.forEach((enterprise, i) => {
         types.forEach((type, j) => {
             data.push([i, j, Math.floor(Math.random() * enterprise.doc_count * 0.3)]);
         });
     });
-    
+
     const option = {
         title: {
             text: '',
@@ -3802,7 +4187,7 @@ function updateHeatmapChart(aggs) {
             }
         }]
     };
-    
+
     charts.heatmapChart.hideLoading();
     charts.heatmapChart.setOption(option);
 }
@@ -3810,7 +4195,7 @@ function updateHeatmapChart(aggs) {
 // Correlation Chart
 function updateCorrelationChart(aggs) {
     if (!charts.correlationChart) return;
-    
+
     // Create correlation matrix between different metrics
     const metrics = ['Nguồn', 'Loại', 'Cấp độ', 'Đối tượng'];
     const correlationData = [
@@ -3819,14 +4204,14 @@ function updateCorrelationChart(aggs) {
         [0.45, 0.68, 1.00, 0.43],
         [0.32, 0.54, 0.43, 1.00]
     ];
-    
+
     const data = [];
     correlationData.forEach((row, i) => {
         row.forEach((value, j) => {
             data.push([i, j, value]);
         });
     });
-    
+
     const option = {
         title: {
             text: '',
@@ -3906,7 +4291,7 @@ function updateCorrelationChart(aggs) {
             }
         }]
     };
-    
+
     charts.correlationChart.hideLoading();
     charts.correlationChart.setOption(option);
 }
@@ -3917,10 +4302,10 @@ function exportSpecificReport(reportType) {
         showError('Chưa có dữ liệu để xuất. Vui lòng làm mới dữ liệu trước.');
         return;
     }
-    
+
     const aggs = lastFetchedData.aggregations;
     let workbook, worksheets;
-    
+
     switch(reportType) {
         case 'source-analysis':
             workbook = createSourceAnalysisWorkbook(aggs);
@@ -3944,7 +4329,7 @@ function exportSpecificReport(reportType) {
             showError('Loại báo cáo không được hỗ trợ');
             return;
     }
-    
+
     // Download the Excel file
     XLSX.writeFile(workbook, `bao_cao_${reportType}_${new Date().toISOString().split('T')[0]}.xlsx`);
 }
@@ -3955,17 +4340,17 @@ function exportAllToExcel() {
         showError('Chưa có dữ liệu để xuất. Vui lòng làm mới dữ liệu trước.');
         return;
     }
-    
+
     const aggs = lastFetchedData.aggregations;
     const workbook = createComprehensiveWorkbook(aggs);
-    
+
     XLSX.writeFile(workbook, `bao_cao_tong_hop_${new Date().toISOString().split('T')[0]}.xlsx`);
 }
 
 // Create Source Analysis Workbook
 function createSourceAnalysisWorkbook(aggs) {
     const wb = XLSX.utils.book_new();
-    
+
     // Source distribution sheet
     const sourceData = [
         ['Nguồn', 'Số lượng', 'Tỷ lệ %'],
@@ -3975,17 +4360,17 @@ function createSourceAnalysisWorkbook(aggs) {
             ((item.doc_count / aggs.total_records.value) * 100).toFixed(2)
         ])
     ];
-    
+
     const ws1 = XLSX.utils.aoa_to_sheet(sourceData);
     XLSX.utils.book_append_sheet(wb, ws1, 'Phân tích nguồn');
-    
+
     return wb;
 }
 
 // Create Target Analysis Workbook
 function createTargetAnalysisWorkbook(aggs) {
     const wb = XLSX.utils.book_new();
-    
+
     // Target distribution
     const targetData = [
         ['Đối tượng', 'Số lượng', 'Tỷ lệ %'],
@@ -3995,17 +4380,17 @@ function createTargetAnalysisWorkbook(aggs) {
             ((item.doc_count / aggs.total_records.value) * 100).toFixed(2)
         ])
     ];
-    
+
     const ws1 = XLSX.utils.aoa_to_sheet(targetData);
     XLSX.utils.book_append_sheet(wb, ws1, 'Phân tích đối tượng');
-    
+
     return wb;
 }
 
 // Create Route Analysis Workbook
 function createRouteAnalysisWorkbook(aggs) {
     const wb = XLSX.utils.book_new();
-    
+
     const routeData = [
         ['Tuyến', 'Số báo cáo', 'Mức độ ưu tiên'],
         ...aggs.tuyen_agg.buckets.map((item, index) => [
@@ -4014,17 +4399,17 @@ function createRouteAnalysisWorkbook(aggs) {
             index < 5 ? 'Cao' : index < 10 ? 'Trung bình' : 'Thấp'
         ])
     ];
-    
+
     const ws1 = XLSX.utils.aoa_to_sheet(routeData);
     XLSX.utils.book_append_sheet(wb, ws1, 'Phân tích tuyến');
-    
+
     return wb;
 }
 
 // Create Enterprise Analysis Workbook
 function createEnterpriseAnalysisWorkbook(aggs) {
     const wb = XLSX.utils.book_new();
-    
+
     const enterpriseData = [
         ['Xí nghiệp', 'Số báo cáo', 'Tỷ lệ %', 'Xếp hạng'],
         ...aggs.xi_nghiep_agg.buckets.map((item, index) => [
@@ -4034,17 +4419,17 @@ function createEnterpriseAnalysisWorkbook(aggs) {
             index + 1
         ])
     ];
-    
+
     const ws1 = XLSX.utils.aoa_to_sheet(enterpriseData);
     XLSX.utils.book_append_sheet(wb, ws1, 'Phân tích xí nghiệp');
-    
+
     return wb;
 }
 
 // Create Praise Analysis Workbook
 function createPraiseAnalysisWorkbook(aggs) {
     const wb = XLSX.utils.book_new();
-    
+
     if (aggs.praise_analysis) {
         const praiseData = [
             ['Xí nghiệp', 'Số lời khen', 'Nguồn chính'],
@@ -4054,18 +4439,18 @@ function createPraiseAnalysisWorkbook(aggs) {
                 'Đa nguồn' // Could be enhanced with actual source analysis
             ])
         ];
-        
+
         const ws1 = XLSX.utils.aoa_to_sheet(praiseData);
         XLSX.utils.book_append_sheet(wb, ws1, 'Phân tích khen ngợi');
     }
-    
+
     return wb;
 }
 
 // Create Comprehensive Workbook
 function createComprehensiveWorkbook(aggs) {
     const wb = XLSX.utils.book_new();
-    
+
     // Summary sheet
     const summaryData = [
         ['Chỉ số', 'Giá trị'],
@@ -4075,16 +4460,16 @@ function createComprehensiveWorkbook(aggs) {
         ['Số nguồn', aggs.nguon_agg.buckets.length],
         ['Tỷ lệ đã xử lý', ((aggs.trang_thai_agg.buckets.find(b => b.key === 'Đã xử lý')?.doc_count || 0) / aggs.total_records.value * 100).toFixed(2) + '%']
     ];
-    
+
     const ws_summary = XLSX.utils.aoa_to_sheet(summaryData);
     XLSX.utils.book_append_sheet(wb, ws_summary, 'Tổng quan');
-    
+
     // Add other sheets
     const sourceWb = createSourceAnalysisWorkbook(aggs);
     const targetWb = createTargetAnalysisWorkbook(aggs);
     const routeWb = createRouteAnalysisWorkbook(aggs);
     const enterpriseWb = createEnterpriseAnalysisWorkbook(aggs);
-    
+
     // Copy sheets from other workbooks
     if (sourceWb.Sheets['Phân tích nguồn']) {
         XLSX.utils.book_append_sheet(wb, sourceWb.Sheets['Phân tích nguồn'], 'Nguồn');
@@ -4098,7 +4483,7 @@ function createComprehensiveWorkbook(aggs) {
     if (enterpriseWb.Sheets['Phân tích xí nghiệp']) {
         XLSX.utils.book_append_sheet(wb, enterpriseWb.Sheets['Phân tích xí nghiệp'], 'Xí nghiệp');
     }
-    
+
     return wb;
 }
 
@@ -4136,7 +4521,7 @@ function applyChartEnhancements() {
                     document.body.style.cursor = 'pointer';
                 }
             });
-            
+
             charts[chartId].on('mouseout', function(params) {
                 document.body.style.cursor = 'default';
             });
@@ -4147,7 +4532,7 @@ function applyChartEnhancements() {
 // Enhanced tooltip and interaction configuration
 function enhanceAllCharts() {
     const enhancedColors = ['#64c8ff', '#00ffc8', '#ff9664', '#a855f7', '#f59e0b', '#ef4444', '#06b6d4', '#8b5cf6'];
-    
+
     Object.keys(charts).forEach((chartId, index) => {
         if (charts[chartId] && !charts[chartId].isDisposed()) {
             // Add enhanced interactions
@@ -4156,11 +4541,11 @@ function enhanceAllCharts() {
                     document.body.style.cursor = 'pointer';
                 }
             });
-            
+
             charts[chartId].on('mouseout', function(params) {
                 document.body.style.cursor = 'default';
             });
-            
+
             // Add click interactions for detailed view
             charts[chartId].on('click', function(params) {
                 if (params.componentType === 'series') {
@@ -4192,7 +4577,7 @@ function showDetailedTooltip(params, chartId) {
         max-width: 400px;
         animation: fadeInScale 0.3s ease-out;
     `;
-    
+
     tooltipDiv.innerHTML = `
         <div style="text-align: center; margin-bottom: 20px;">
             <h3 style="color: #64c8ff; margin: 0 0 10px 0; font-size: 18px;">📊 Thông tin chi tiết</h3>
@@ -4205,22 +4590,22 @@ function showDetailedTooltip(params, chartId) {
             <div>⏰ Thời gian: <span style="color: #a855f7;">${new Date().toLocaleString('vi-VN')}</span></div>
         </div>
         <div style="text-align: center; margin-top: 20px;">
-            <button onclick="this.parentElement.parentElement.remove()" 
-                    style="background: linear-gradient(135deg, #64c8ff, #00ffc8); 
-                           border: none; 
-                           padding: 10px 20px; 
-                           border-radius: 8px; 
-                           color: white; 
-                           font-weight: 600; 
+            <button onclick="this.parentElement.parentElement.remove()"
+                    style="background: linear-gradient(135deg, #64c8ff, #00ffc8);
+                           border: none;
+                           padding: 10px 20px;
+                           border-radius: 8px;
+                           color: white;
+                           font-weight: 600;
                            cursor: pointer;
                            font-family: Inter, sans-serif;">
                 Đóng
             </button>
         </div>
     `;
-    
+
     document.body.appendChild(tooltipDiv);
-    
+
     // Auto remove after 10 seconds
     setTimeout(() => {
         if (tooltipDiv.parentElement) {
@@ -4250,11 +4635,11 @@ function debugAppStatus() {
     console.log('=== ECharts Dashboard Debug Info ===');
     console.log('Charts initialized:', Object.keys(charts).length);
     console.log('Available charts:', Object.keys(charts));
-    
+
     // Check which tabs are active
     const activeTab = document.querySelector('.tab-content.active');
     console.log('Active tab:', activeTab ? activeTab.id : 'none');
-    
+
     // Check chart dimensions
     Object.entries(charts).forEach(([id, chart]) => {
         const element = document.getElementById(id);
@@ -4262,21 +4647,129 @@ function debugAppStatus() {
             console.log(`Chart ${id}: ${element.offsetWidth}x${element.offsetHeight}, isDisposed: ${chart.isDisposed()}`);
         }
     });
-    
+
     // Check data status
     console.log('Last fetched data available:', !!lastFetchedData);
-    
+
     console.log('=====================================');
 }
 
-// Add debug function to window for testing
+// Global function to fix all chart dimensions (emergency fix)
+function fixAllChartDimensions() {
+    console.log('🚨 Emergency fix: Resetting all chart dimensions...');
+
+    Object.keys(charts).forEach(chartId => {
+        const element = document.getElementById(chartId);
+        const chart = charts[chartId];
+
+        if (element && chart && !chart.isDisposed()) {
+            try {
+                // Reset container
+                const container = element.closest('.chart-container');
+                if (container) {
+                    container.style.height = 'auto';
+                    container.style.minHeight = '450px';
+                    container.style.maxHeight = '600px';
+                }
+
+                // Reset chart element
+                element.style.height = '400px';
+                element.style.minHeight = '400px';
+                element.style.maxHeight = '500px';
+                element.style.width = '100%';
+
+                // Force resize
+                setTimeout(() => {
+                    const width = element.offsetWidth || 600;
+                    const height = Math.min(element.offsetHeight || 400, 500);
+
+                    chart.resize({
+                        width: width,
+                        height: height,
+                        silent: true
+                    });
+
+                    console.log(`🔧 Fixed ${chartId}: ${width}x${height}`);
+                }, 50);
+
+            } catch (error) {
+                console.error(`Error fixing chart ${chartId}:`, error);
+            }
+        }
+    });
+
+    console.log('✅ All chart dimensions reset completed');
+}
+
+// Show keyboard shortcuts notification
+function showKeyboardShortcutsNotification() {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 10000;
+        background: linear-gradient(135deg, rgba(10, 10, 15, 0.95), rgba(30, 30, 40, 0.95));
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(100, 200, 255, 0.3);
+        color: white;
+        padding: 20px;
+        border-radius: 12px;
+        font-family: Inter, sans-serif;
+        font-size: 14px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        max-width: 300px;
+        animation: slideInNotification 0.5s ease-out;
+    `;
+
+    notification.innerHTML = `
+        <div style="color: #64c8ff; font-weight: 700; margin-bottom: 12px; font-size: 16px;">
+            ⌨️ Keyboard Shortcuts
+        </div>
+        <div style="line-height: 1.6;">
+            <div><strong>Ctrl+Shift+D:</strong> Debug charts</div>
+            <div><strong>Ctrl+Shift+A:</strong> Toggle animations</div>
+            <div><strong>Ctrl+Shift+R:</strong> Force refresh</div>
+            <div style="color: #00ffc8;"><strong>Ctrl+Shift+F:</strong> Fix chart sizes</div>
+        </div>
+        <div style="margin-top: 12px; font-size: 12px; color: #888; text-align: center;">
+            Charts are now size-constrained to prevent stretching
+        </div>
+    `;
+
+    // Add CSS animation
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideInNotification {
+            0% { transform: translateX(100%); opacity: 0; }
+            100% { transform: translateX(0); opacity: 1; }
+        }
+    `;
+    document.head.appendChild(style);
+
+    document.body.appendChild(notification);
+
+    // Auto remove after 8 seconds
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.style.animation = 'slideInNotification 0.3s ease-in reverse';
+            setTimeout(() => {
+                notification.remove();
+                style.remove();
+            }, 300);
+        }
+    }, 8000);
+}
+
+// Add debug functions to window for testing
 window.debugAppStatus = debugAppStatus;
+window.fixAllChartDimensions = fixAllChartDimensions;
 
 // Page visibility handling
 document.addEventListener('visibilitychange', function() {
     pageVisible = !document.hidden;
     console.log(`Page visibility changed: ${pageVisible ? 'visible' : 'hidden'}`);
-    
+
     if (!pageVisible) {
         // Pause any running animations or updates
         Object.values(charts).forEach(chart => {
@@ -4299,26 +4792,26 @@ document.addEventListener('visibilitychange', function() {
 // Additional DOMContentLoaded listener for critical functionality
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 Additional DOM initialization started');
-    
+
     // Ensure sidebar functionality is properly initialized
     setTimeout(() => {
         initializeSidebarCollapse();
         console.log('✅ Sidebar functionality re-initialized');
     }, 100);
-    
+
     // Initialize critical event listeners
     const refreshBtn = document.getElementById('refreshData');
     if (refreshBtn) {
         refreshBtn.addEventListener('click', fetchDataAndUpdateCharts);
         console.log('✅ Refresh button initialized');
     }
-    
+
     const exportBtn = document.getElementById('exportExcel');
     if (exportBtn) {
         exportBtn.addEventListener('click', exportToExcel);
         console.log('✅ Export button initialized');
     }
-    
+
     // Fix tab navigation if not working
     const menuLinks = document.querySelectorAll('.menu-link');
     menuLinks.forEach(link => {
@@ -4326,9 +4819,9 @@ document.addEventListener('DOMContentLoaded', function() {
         link.removeEventListener('click', handleTabClick);
         link.addEventListener('click', handleTabClick);
     });
-    
+
     console.log('✅ Additional DOM initialization completed');
-    
+
     // Final check and fix for charts after everything is loaded
     setTimeout(() => {
         fixChartsAfterLoad();
@@ -4341,13 +4834,13 @@ function handleTabClick(e) {
     const targetTab = this.getAttribute('data-tab');
     if (targetTab) {
         showTab(targetTab);
-        
+
         // Update active state
         document.querySelectorAll('.menu-link').forEach(link => link.classList.remove('active'));
         this.classList.add('active');
-        
+
         console.log(`📱 Switched to tab: ${targetTab}`);
-        
+
         // Ensure charts in the new tab are visible and responsive
         setTimeout(() => {
             checkAndFixChartsInTab(targetTab);
@@ -4358,15 +4851,15 @@ function handleTabClick(e) {
 // Function to fix charts after page load
 function fixChartsAfterLoad() {
     console.log('🔧 Final chart check and fix...');
-    
+
     // Check all chart containers for visibility issues
     const allChartIds = Object.values(CHARTS_BY_TAB).flat();
     let fixedCharts = 0;
-    
+
     allChartIds.forEach(chartId => {
         const element = document.getElementById(chartId);
         const chart = charts[chartId];
-        
+
         if (element && chart && !chart.isDisposed()) {
             // Check if chart has no data or is empty
             try {
@@ -4389,7 +4882,7 @@ function fixChartsAfterLoad() {
             fixedCharts++;
         }
     });
-    
+
     if (fixedCharts > 0) {
         console.log(`🔧 Fixed ${fixedCharts} charts`);
         // Re-run data load after fixes
@@ -4401,34 +4894,294 @@ function fixChartsAfterLoad() {
     }
 }
 
-// Function to check and fix charts in a specific tab
+// Function to check and fix charts in a specific tab with height constraints
 function checkAndFixChartsInTab(tabName) {
     const tabCharts = CHARTS_BY_TAB[tabName] || [];
     let fixedInTab = 0;
-    
+
+    console.log(`🔧 Checking and fixing ${tabCharts.length} charts in tab: ${tabName}`);
+
     tabCharts.forEach(chartId => {
         const element = document.getElementById(chartId);
         const chart = charts[chartId];
-        
+
         if (element && chart && !chart.isDisposed()) {
-            // Force resize to ensure proper display
             try {
-                chart.resize();
-                
-                // Check if chart is properly visible
-                const rect = element.getBoundingClientRect();
-                if (rect.width === 0 || rect.height === 0) {
-                    console.warn(`🔧 Chart ${chartId} has zero dimensions, fixing...`);
-                    setTimeout(() => chart.resize(), 100);
-                    fixedInTab++;
+                // Force proper container and element dimensions
+                const container = element.closest('.chart-container');
+                if (container) {
+                    // Reset container height to prevent stretching
+                    container.style.height = 'auto';
+                    container.style.minHeight = '450px';
+                    container.style.maxHeight = '600px';
                 }
+
+                // Set fixed chart dimensions
+                element.style.height = '400px';
+                element.style.minHeight = '400px';
+                element.style.maxHeight = '500px';
+                element.style.width = '100%';
+
+                // Force resize with proper dimensions
+                setTimeout(() => {
+                    const width = element.offsetWidth || 600;
+                    const height = Math.min(element.offsetHeight || 400, 500);
+
+                    chart.resize({
+                        width: width,
+                        height: height,
+                        silent: true
+                    });
+
+                    console.log(`🔧 Fixed chart ${chartId} dimensions: ${width}x${height}`);
+                    fixedInTab++;
+                }, 100);
+
             } catch (error) {
-                console.warn(`🔧 Error with chart ${chartId}:`, error);
+                console.warn(`🔧 Error fixing chart ${chartId}:`, error);
+            }
+        } else if (element && !chart) {
+            console.warn(`🔧 Chart ${chartId} missing, needs initialization`);
+            fixedInTab++;
+        }
+    });
+
+    if (fixedInTab > 0) {
+        console.log(`🔧 Fixed ${fixedInTab} charts in tab: ${tabName}`);
+    } else {
+        console.log(`✅ All charts in tab ${tabName} are properly sized`);
+    }
+}
+
+// Enhanced floating particles animation
+function createEnhancedFloatingParticles() {
+    if (!PERFORMANCE_CONFIG.ENABLE_ANIMATIONS || typeof Motion === 'undefined') {
+        console.log('Floating particles disabled - animations off or Motion.js unavailable');
+        return;
+    }
+
+    try {
+        console.log('🌟 Creating enhanced floating particles...');
+
+        // Create subtle floating elements
+        for (let i = 0; i < 6; i++) {
+            const particle = document.createElement('div');
+            particle.style.cssText = `
+                position: fixed;
+                width: 3px;
+                height: 3px;
+                background: radial-gradient(circle, #64c8ff60, transparent);
+                border-radius: 50%;
+                pointer-events: none;
+                z-index: 1;
+                left: ${Math.random() * 100}%;
+                top: ${Math.random() * 100}%;
+            `;
+            document.body.appendChild(particle);
+
+            // Animate particle
+            Motion.animate(particle, {
+                y: [0, -80, 0],
+                x: [0, Math.random() * 40 - 20, 0],
+                opacity: [0, 0.4, 0],
+                scale: [0, 1, 0]
+            }, {
+                duration: 12 + Math.random() * 6,
+                repeat: Infinity,
+                ease: 'easeInOut',
+                delay: Math.random() * 3
+            });
+        }
+    } catch (error) {
+        console.log('Enhanced floating particles error:', error);
+    }
+}
+
+// Initialize tools dropdown menu
+function initializeToolsMenu() {
+    const toolsMenuBtn = document.getElementById('toolsMenuBtn');
+    const toolsDropdown = document.getElementById('toolsDropdown');
+    const animationToggleText = document.getElementById('animationToggleText');
+
+    if (!toolsMenuBtn || !toolsDropdown) {
+        console.warn('Tools menu elements not found');
+        return;
+    }
+
+    // Update animation toggle text based on current state
+    function updateAnimationToggleText() {
+        if (animationToggleText) {
+            animationToggleText.textContent = PERFORMANCE_CONFIG.ENABLE_ANIMATIONS
+                ? 'Disable Animations'
+                : 'Enable Animations';
+        }
+    }
+
+    // Initially update text
+    updateAnimationToggleText();
+
+    // Toggle dropdown
+    toolsMenuBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+
+        const isDropdownOpen = toolsDropdown.classList.contains('show');
+        const wrapper = toolsMenuBtn.closest('.tools-menu-wrapper');
+
+        if (isDropdownOpen) {
+            toolsDropdown.classList.remove('show');
+            wrapper.classList.remove('dropdown-open');
+        } else {
+            toolsDropdown.classList.add('show');
+            wrapper.classList.add('dropdown-open');
+        }
+
+        // Animate button
+        if (PERFORMANCE_CONFIG.ENABLE_ANIMATIONS && typeof Motion !== 'undefined') {
+            try {
+                Motion.animate(toolsMenuBtn, {
+                    scale: [1, 1.05, 1]
+                }, {
+                    duration: 0.2,
+                    ease: 'easeInOut'
+                });
+            } catch (error) {
+                console.log('Tools button animation error:', error);
             }
         }
     });
-    
-    if (fixedInTab > 0) {
-        console.log(`🔧 Fixed ${fixedInTab} charts in tab: ${tabName}`);
-    }
+
+    // Handle dropdown item clicks
+    toolsDropdown.addEventListener('click', function(e) {
+        const item = e.target.closest('.dropdown-item');
+        if (!item) return;
+
+        const action = item.getAttribute('data-action');
+
+        switch (action) {
+            case 'debug-charts':
+                console.log('🔍 DEBUG: Checking all charts status...');
+                debugChartsStatus();
+                showToolsNotification('Charts status logged to console', '📊');
+                break;
+
+            case 'toggle-animations':
+                toggleAnimations();
+                updateAnimationToggleText();
+                const state = PERFORMANCE_CONFIG.ENABLE_ANIMATIONS ? 'enabled' : 'disabled';
+                showToolsNotification(`Animations ${state}`, '🎬');
+                break;
+
+            case 'force-refresh':
+                console.log('🎬 Force refresh with animations...');
+                animateDataRefresh();
+                setTimeout(() => {
+                    const mockData = generateEnhancedMockData();
+                    lastFetchedData = mockData;
+                    forceUpdateAllCharts(mockData);
+                    updateStatsWithAnimation(mockData.aggregations);
+                    updateLastUpdateTime();
+                }, 200);
+                showToolsNotification('Data refreshed with animations', '🔄');
+                break;
+
+            case 'fix-dimensions':
+                console.log('🔧 Emergency fix: Resetting all chart dimensions...');
+                fixAllChartDimensions();
+                showToolsNotification('Chart dimensions fixed', '🔧');
+                break;
+        }
+
+        // Close dropdown after action
+        const wrapper = toolsMenuBtn.closest('.tools-menu-wrapper');
+        toolsDropdown.classList.remove('show');
+        wrapper.classList.remove('dropdown-open');
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        const wrapper = toolsMenuBtn.closest('.tools-menu-wrapper');
+        if (!toolsMenuBtn.contains(e.target) && !toolsDropdown.contains(e.target)) {
+            toolsDropdown.classList.remove('show');
+            wrapper.classList.remove('dropdown-open');
+        }
+    });
+
+    console.log('✅ Tools menu initialized');
+}
+
+// Show notification for tools actions
+function showToolsNotification(message, icon = '🛠️') {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 10000;
+        background: linear-gradient(135deg, rgba(10, 10, 15, 0.95), rgba(30, 30, 40, 0.95));
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(100, 200, 255, 0.3);
+        color: white;
+        padding: 16px 20px;
+        border-radius: 12px;
+        font-family: Inter, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        max-width: 300px;
+        animation: slideInNotification 0.5s ease-out;
+    `;
+
+    notification.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 18px;">${icon}</span>
+            <span style="color: #e4e4e7;">${message}</span>
+        </div>
+    `;
+
+    document.body.appendChild(notification);
+
+    // Auto remove after 3 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.style.animation = 'slideOutNotification 0.5s ease-in forwards';
+            setTimeout(() => {
+                notification.remove();
+            }, 500);
+        }
+    }, 3000);
+
+    // Add click to dismiss
+    notification.addEventListener('click', () => {
+        notification.remove();
+    });
+}
+
+// Ensure CSS keyframes exist for notifications
+if (!document.querySelector('#notification-styles')) {
+    const notificationStyles = document.createElement('style');
+    notificationStyles.id = 'notification-styles';
+    notificationStyles.textContent = `
+        @keyframes slideInNotification {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOutNotification {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+    `;
+    document.head.appendChild(notificationStyles);
 }
