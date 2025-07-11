@@ -5,7 +5,9 @@
       "Bash(sed:*)",
       "Bash(grep:*)",
       "Bash(cp:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(pkill:*)",
+      "Bash(true)"
     ],
     "deny": []
   }

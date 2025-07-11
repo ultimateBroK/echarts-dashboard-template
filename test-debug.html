@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Test - ECharts Dashboard</title>
+    <style>
+        body { 
+            margin: 0; 
+            background: #0a0a0f; 
+            color: #e4e4e7; 
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        .debug-section {
+            background: #1a1a20;
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #64c8ff;
+        }
+        .test-btn {
+            background: #64c8ff;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .test-btn:hover {
+            background: #52b5e6;
+        }
+        .log {
+            background: #000;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-family: monospace;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .success { color: #4ade80; }
+        .error { color: #f87171; }
+        .warning { color: #fbbf24; }
+        .info { color: #60a5fa; }
+    </style>
+</head>
+<body>
+    <h1>🔧 ECharts Dashboard Debug Tool</h1>
+    
+    <div class="debug-section">
+        <h2>📋 Element Check</h2>
+        <button class="test-btn" onclick="checkElements()">Check Elements</button>
+        <div id="elementLog" class="log"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>🔗 Function Check</h2>
+        <button class="test-btn" onclick="checkFunctions()">Check Functions</button>
+        <div id="functionLog" class="log"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>🎯 Sidebar Test</h2>
+        <button class="test-btn" onclick="testSidebar()">Test Sidebar Toggle</button>
+        <div id="sidebarLog" class="log"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>📊 Chart Test</h2>
+        <button class="test-btn" onclick="testCharts()">Test Chart Initialization</button>
+        <div id="chartLog" class="log"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>🔄 Live Test</h2>
+        <a href="index.html" target="_blank" class="test-btn" style="text-decoration: none; display: inline-block;">Open Main App</a>
+        <button class="test-btn" onclick="openConsoleTest()">Open Console Test</button>
+    </div>
+
+    <script>
+        function log(message, type = 'info', targetId) {
+            const target = document.getElementById(targetId);
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            target.appendChild(div);
+            target.scrollTop = target.scrollHeight;
+        }
+        
+        function checkElements() {
+            const logTarget = 'elementLog';
+            document.getElementById(logTarget).innerHTML = '';
+            
+            // Check main page
+            fetch('index.html').then(response => response.text()).then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                // Check critical elements
+                const elements = [
+                    'sidebarToggleBtn',
+                    'overview-tab',
+                    'detailed-tab', 
+                    'analytics-tab',
+                    'exports-tab',
+                    'sourceChart',
+                    'enterpriseChart'
+                ];
+                
+                elements.forEach(id => {
+                    const element = doc.getElementById(id);
+                    if (element) {
+                        log(`✅ Element found: ${id}`, 'success', logTarget);
+                    } else {
+                        log(`❌ Element missing: ${id}`, 'error', logTarget);
+                    }
+                });
+                
+                // Check menu links
+                const menuLinks = doc.querySelectorAll('.menu-link');
+                log(`🔗 Found ${menuLinks.length} menu links`, 'info', logTarget);
+                
+                menuLinks.forEach((link, index) => {
+                    const dataTab = link.getAttribute('data-tab');
+                    if (dataTab) {
+                        log(`  └─ Link ${index + 1}: data-tab="${dataTab}"`, 'success', logTarget);
+                    } else {
+                        log(`  └─ Link ${index + 1}: missing data-tab`, 'error', logTarget);
+                    }
+                });
+                
+            }).catch(error => {
+                log(`❌ Failed to load index.html: ${error}`, 'error', logTarget);
+            });
+        }
+        
+        function checkFunctions() {
+            const logTarget = 'functionLog';
+            document.getElementById(logTarget).innerHTML = '';
+            
+            // Load app.js and check for function definitions
+            fetch('app.js').then(response => response.text()).then(code => {
+                
+                const functions = [
+                    'showTab',
+                    'toggleSidebar', 
+                    'initializeTabNavigation',
+                    'initializeSidebarCollapse',
+                    'initializeCharts',
+                    'fetchDataAndUpdateCharts'
+                ];
+                
+                functions.forEach(funcName => {
+                    const regex = new RegExp(`function\\s+${funcName}\\s*\\(|${funcName}\\s*=\\s*function`, 'g');
+                    if (regex.test(code)) {
+                        log(`✅ Function defined: ${funcName}`, 'success', logTarget);
+                    } else {
+                        log(`❌ Function missing: ${funcName}`, 'error', logTarget);
+                    }
+                });
+                
+                // Check for common issues
+                if (code.includes('showTab(') && !code.includes('function showTab')) {
+                    log(`⚠️ showTab is called but not defined`, 'warning', logTarget);
+                }
+                
+                if (code.includes('toggleSidebar()') && !code.includes('function toggleSidebar')) {
+                    log(`⚠️ toggleSidebar is called but not defined`, 'warning', logTarget);
+                }
+                
+            }).catch(error => {
+                log(`❌ Failed to load app.js: ${error}`, 'error', logTarget);
+            });
+        }
+        
+        function testSidebar() {
+            const logTarget = 'sidebarLog';
+            document.getElementById(logTarget).innerHTML = '';
+            
+            log('🔧 Testing sidebar functionality...', 'info', logTarget);
+            
+            // Open main app in iframe for testing
+            const iframe = document.createElement('iframe');
+            iframe.src = 'index.html';
+            iframe.style.display = 'none';
+            document.body.appendChild(iframe);
+            
+            iframe.onload = () => {
+                setTimeout(() => {
+                    try {
+                        const iframeDoc = iframe.contentDocument;
+                        const sidebar = iframeDoc.querySelector('.sidebar');
+                        const toggleBtn = iframeDoc.getElementById('sidebarToggleBtn');
+                        
+                        if (sidebar) {
+                            log('✅ Sidebar element found', 'success', logTarget);
+                        } else {
+                            log('❌ Sidebar element not found', 'error', logTarget);
+                        }
+                        
+                        if (toggleBtn) {
+                            log('✅ Toggle button found', 'success', logTarget);
+                            
+                            // Test click
+                            toggleBtn.click();
+                            log('🔄 Clicked toggle button', 'info', logTarget);
+                            
+                            setTimeout(() => {
+                                if (sidebar.classList.contains('collapsed')) {
+                                    log('✅ Sidebar collapsed successfully', 'success', logTarget);
+                                } else {
+                                    log('❌ Sidebar did not collapse', 'error', logTarget);
+                                }
+                                document.body.removeChild(iframe);
+                            }, 500);
+                            
+                        } else {
+                            log('❌ Toggle button not found', 'error', logTarget);
+                            document.body.removeChild(iframe);
+                        }
+                        
+                    } catch (error) {
+                        log(`❌ Test error: ${error.message}`, 'error', logTarget);
+                        document.body.removeChild(iframe);
+                    }
+                }, 2000);
+            };
+        }
+        
+        function testCharts() {
+            const logTarget = 'chartLog';
+            document.getElementById(logTarget).innerHTML = '';
+            
+            log('📊 Testing chart functionality...', 'info', logTarget);
+            
+            // Check if ECharts CDN is accessible
+            fetch('https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js')
+                .then(response => {
+                    if (response.ok) {
+                        log('✅ ECharts CDN accessible', 'success', logTarget);
+                    } else {
+                        log('❌ ECharts CDN not accessible', 'error', logTarget);
+                    }
+                })
+                .catch(error => {
+                    log('❌ ECharts CDN error', 'error', logTarget);
+                });
+            
+            // Test chart containers in main app
+            fetch('index.html').then(response => response.text()).then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                const chartContainers = doc.querySelectorAll('.chart');
+                log(`📊 Found ${chartContainers.length} chart containers`, 'info', logTarget);
+                
+                const chartIds = Array.from(chartContainers).map(el => el.id).filter(id => id);
+                log(`🔗 Chart IDs: ${chartIds.join(', ')}`, 'info', logTarget);
+                
+            }).catch(error => {
+                log(`❌ Chart test error: ${error}`, 'error', logTarget);
+            });
+        }
+        
+        function openConsoleTest() {
+            const testCode = `
+// Quick console test for ECharts Dashboard
+console.log('🔧 Dashboard Debug Test');
+
+// Test element access
+const sidebar = document.querySelector('.sidebar');
+const toggleBtn = document.getElementById('sidebarToggleBtn');
+const menuLinks = document.querySelectorAll('.menu-link');
+
+console.log('Sidebar:', sidebar);
+console.log('Toggle button:', toggleBtn);
+console.log('Menu links:', menuLinks.length);
+
+// Test functions
+console.log('showTab function:', typeof showTab);
+console.log('toggleSidebar function:', typeof toggleSidebar);
+
+// Test charts object
+console.log('Charts object:', typeof charts !== 'undefined' ? Object.keys(charts).length : 'undefined');
+            `;
+            
+            alert('Copy this code and paste it in the browser console on the main app:\\n\\n' + testCode);
+        }
+        
+        // Auto-run basic checks
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                checkElements();
+                checkFunctions();
+            }, 500);
+        });
+    </script>
+</body>
+</html>
